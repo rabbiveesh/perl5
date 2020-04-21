@@ -12692,8 +12692,24 @@ S_regpiece(pTHX_ RExC_state_t *pRExC_state, I32 *flagp, U32 depth)
                        "Useless use of greediness modifier '%c'",
                        *RExC_parse);
         }
+    }
+    else {
 
-      do_curly:
+        nextchar(pRExC_state);
+
+        *flagp = HASWIDTH;
+
+        if (op == '*') {
+            min = 0;
+        }
+        else if (op == '+') {
+            min = 1;
+        }
+        else if (op == '?') {
+            min = 0; max = 1;
+        }
+    }
+
         if ((flags&SIMPLE)) {
             if (min == 0 && max == REG_INFTY) {
 
@@ -12770,7 +12786,6 @@ S_regpiece(pTHX_ RExC_state_t *pRExC_state, I32 *flagp, U32 depth)
             RExC_seen |= REG_UNBOUNDED_QUANTIFIER_SEEN;
 
         goto nest_check;
-    }
 
 #if 0				/* Now runtime fix should be reliable. */
 
@@ -12787,23 +12802,6 @@ S_regpiece(pTHX_ RExC_state_t *pRExC_state, I32 *flagp, U32 depth)
     if (!(flags&HASWIDTH) && op != '?')
       vFAIL("Regexp *+ operand could be empty");
 #endif
-
-    nextchar(pRExC_state);
-
-    *flagp = HASWIDTH;
-
-    if (op == '*') {
-	min = 0;
-	goto do_curly;
-    }
-    else if (op == '+') {
-	min = 1;
-	goto do_curly;
-    }
-    else if (op == '?') {
-	min = 0; max = 1;
-	goto do_curly;
-    }
   nest_check:
     if (!(flags&(HASWIDTH|POSTPONED)) && max > REG_INFTY/3) {
         if (origparse[0] == '\\' && origparse[1] == 'K') {
