@@ -12793,12 +12793,15 @@ S_regpiece(pTHX_ RExC_state_t *pRExC_state, I32 *flagp, U32 depth)
                 goto done_main_op;
             }
         }
+
+        /* Here, SIMPLE, but not the '*' and '+' special cases */
+
         MARK_NAUGHTY_EXP(2, 2);
         reginsert(pRExC_state, CURLY, ret, depth+1);
         Set_Node_Offset(REGNODE_p(ret), parse_start+1); /* MJD */
         Set_Node_Cur_Length(REGNODE_p(ret), parse_start);
     }
-    else {
+    else {  /* not SIMPLE */
         const regnode_offset w = reg_node(pRExC_state, WHILEM);
 
         FLAGS(REGNODE_p(w)) = 0;
@@ -12828,6 +12831,7 @@ S_regpiece(pTHX_ RExC_state_t *pRExC_state, I32 *flagp, U32 depth)
         MARK_NAUGHTY_EXP(1, 4);     /* compound interest */
     }
 
+    /* Finish up the {m,n} case */
     FLAGS(REGNODE_p(ret)) = 0;
 
     ARG1_SET(REGNODE_p(ret), (U16)min);
@@ -12835,6 +12839,7 @@ S_regpiece(pTHX_ RExC_state_t *pRExC_state, I32 *flagp, U32 depth)
 
   done_main_op:
 
+    /* Process any greediness modifiers */
     if (*RExC_parse == '?') {
 	nextchar(pRExC_state);
 	reginsert(pRExC_state, MINMOD, ret, depth+1);
@@ -12856,6 +12861,7 @@ S_regpiece(pTHX_ RExC_state_t *pRExC_state, I32 *flagp, U32 depth)
         }
     }
 
+    /* Forbid extra quantifiers */
     if (ISMULT2(RExC_parse)) {
 	RExC_parse++;
 	vFAIL("Nested quantifiers");
