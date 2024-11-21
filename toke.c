@@ -6776,6 +6776,26 @@ yyl_slash(pTHX_ char *s)
 }
 
 static int
+yyl_questionmark(pTHX_ char *s)
+{
+    s++;
+    if (*s == '-' && s[1] == '>') /* optional chaining; we require no spaces here */
+    {
+        TOKEN(OPTCHAIN);
+    }
+
+    /* ternary otherwise */
+    if (!PL_lex_allbrackets
+            && PL_lex_fakeeof >= LEX_FAKEEOF_IFELSE)
+    {
+        s--;
+        TOKEN(0);
+    }
+    PL_lex_allbrackets++;
+    OPERATOR(PERLY_QUESTION_MARK);
+}
+
+static int
 yyl_leftsquare(pTHX_ char *s)
 {
     if (PL_lex_brackets > 100)
@@ -9447,16 +9467,8 @@ yyl_try(pTHX_ char *s)
     case '/':			/* may be division, defined-or, or pattern */
         return yyl_slash(aTHX_ s);
 
-     case '?':			/* conditional */
-        s++;
-        if (!PL_lex_allbrackets
-            && PL_lex_fakeeof >= LEX_FAKEEOF_IFELSE)
-        {
-            s--;
-            TOKEN(0);
-        }
-        PL_lex_allbrackets++;
-        OPERATOR(PERLY_QUESTION_MARK);
+     case '?':			/* conditional or safe-call */
+        return yyl_questionmark(aTHX_ s);
 
     case '.':
         if (PL_lex_formbrack && PL_lex_brackets == PL_lex_formbrack

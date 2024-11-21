@@ -437,6 +437,7 @@
 # define newMYSUB(a,b,c,d,e)                    Perl_newMYSUB(aTHX_ a,b,c,d,e)
 # define newNULLLIST()                          Perl_newNULLLIST(aTHX)
 # define newOP(a,b)                             Perl_newOP(aTHX_ a,b)
+# define newOPTCHAINOP(a,b,c)                   Perl_newOPTCHAINOP(aTHX_ a,b,c)
 # define newPADNAMELIST                         Perl_newPADNAMELIST
 # define newPADNAMEouter                        Perl_newPADNAMEouter
 # define newPADNAMEpvn                          Perl_newPADNAMEpvn

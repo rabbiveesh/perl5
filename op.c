@@ -9280,6 +9280,21 @@ Perl_newCONDOP(pTHX_ I32 flags, OP *first, OP *trueop, OP *falseop)
 }
 
 /*
+=for apidoc newOPTCHAINOP
+
+Constructs and returns a conditional execution expression that short-circuits on the definedness
+of the invocant
+*/
+
+OP *
+Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o)
+{
+    // op padsv drops a lexical onto the stack
+    // to store on the stack there's a padsv_store op
+    return newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
+}
+
+/*
 =for apidoc newTRYCATCHOP
 
 Constructs and returns a conditional execution statement that implements

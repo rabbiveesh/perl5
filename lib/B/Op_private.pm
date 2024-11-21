@@ -487,6 +487,7 @@ $bits{oct}{0} = $bf[0];
 $bits{once}{0} = $bf[0];
 @{$bits{open}}{3,2,1,0} = ($bf[5], $bf[5], $bf[5], $bf[5]);
 @{$bits{open_dir}}{3,2,1,0} = ($bf[5], $bf[5], $bf[5], $bf[5]);
+$bits{optchain}{0} = $bf[0];
 $bits{or}{0} = $bf[0];
 $bits{orassign}{0} = $bf[0];
 $bits{ord}{0} = $bf[0];

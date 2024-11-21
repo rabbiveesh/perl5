@@ -561,6 +561,7 @@ EXTCONST char* const PL_op_name[] INIT({
 	"methstart",
 	"initfield",
 	"classname",
+	"optchain",
         "freed",
 });
 
@@ -980,6 +981,7 @@ EXTCONST char* const PL_op_desc[] INIT({
 	"method start",
 	"initialise field",
 	"class name",
+	"optional chain",
     "freed op",
 });
 
@@ -1404,6 +1406,7 @@ INIT({
 	Perl_pp_methstart,
 	Perl_pp_initfield,
 	Perl_pp_classname,
+	Perl_pp_optchain,
 });
 
 EXT Perl_check_t PL_check[] /* or perlvars.h */
@@ -1823,6 +1826,7 @@ INIT({
 	Perl_ck_null,		/* methstart */
 	Perl_ck_null,		/* initfield */
 	Perl_ck_classname,	/* classname */
+	Perl_ck_null,		/* optchain */
 });
 
 EXTCONST U32 PL_opargs[] INIT({
@@ -2241,6 +2245,7 @@ EXTCONST U32 PL_opargs[] INIT({
 	0x00000f00,	/* methstart */
 	0x00000f00,	/* initfield */
 	0x00000008,	/* classname */
+	0x00000300,	/* optchain */
 });
 
 END_EXTERN_C
@@ -2961,6 +2966,7 @@ EXTCONST I16  PL_op_private_bitdef_ix[] = {
      265, /* methstart */
      267, /* initfield */
       -1, /* classname */
+       0, /* optchain */
 
 };
 
@@ -2979,7 +2985,7 @@ EXTCONST I16  PL_op_private_bitdef_ix[] = {
  */
 
 EXTCONST U16  PL_op_private_bitdefs[] = {
-    0x0003, /* scalar, prototype, refgen, srefgen, readline, regcmaybe, regcreset, regcomp, substcont, chop, schop, defined, study, preinc, i_preinc, predec, i_predec, postinc, i_postinc, postdec, i_postdec, not, ucfirst, lcfirst, uc, lc, quotemeta, aeach, avalues, each, pop, shift, grepstart, mapstart, mapwhile, range, and, or, dor, andassign, orassign, dorassign, argcheck, untie, tied, dbmclose, getsockname, getpeername, lstat, stat, readlink, readdir, telldir, rewinddir, closedir, localtime, alarm, require, dofile, entertry, ghbyname, gnbyname, gpbyname, shostent, snetent, sprotoent, sservent, gpwnam, gpwuid, ggrnam, ggrgid, lock, once, fc, anonconst, cmpchain_and, cmpchain_dup, entertrycatch, catch, is_bool, is_weak, weaken, unweaken, is_tainted */
+    0x0003, /* scalar, prototype, refgen, srefgen, readline, regcmaybe, regcreset, regcomp, substcont, chop, schop, defined, study, preinc, i_preinc, predec, i_predec, postinc, i_postinc, postdec, i_postdec, not, ucfirst, lcfirst, uc, lc, quotemeta, aeach, avalues, each, pop, shift, grepstart, mapstart, mapwhile, range, and, or, dor, andassign, orassign, dorassign, argcheck, untie, tied, dbmclose, getsockname, getpeername, lstat, stat, readlink, readdir, telldir, rewinddir, closedir, localtime, alarm, require, dofile, entertry, ghbyname, gnbyname, gpbyname, shostent, snetent, sprotoent, sservent, gpwnam, gpwuid, ggrnam, ggrgid, lock, once, fc, anonconst, cmpchain_and, cmpchain_dup, entertrycatch, catch, is_bool, is_weak, weaken, unweaken, is_tainted, optchain */
     0x3cfc, 0x5379, /* pushmark */
     0x00bd, /* wantarray, runcv */
     0x077e, 0x0554, 0x1b70, 0x542c, 0x4fc8, 0x4225, /* const */
@@ -3484,6 +3490,7 @@ EXTCONST U8 PL_op_private_valid[] = {
     /* METHSTART  */ (OPpARG1_MASK|OPpINITFIELDS),
     /* INITFIELD  */ (OPpARG1_MASK|OPpINITFIELD_AV|OPpINITFIELD_HV),
     /* CLASSNAME  */ (0),
+    /* OPTCHAIN   */ (OPpARG1_MASK),
 
 };
 
