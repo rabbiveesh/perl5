@@ -190,8 +190,9 @@ extern int yydebug;
     POSTJOIN = 384,                /* POSTJOIN  */
     PLUGIN_HIGH_OP = 385,          /* PLUGIN_HIGH_OP  */
     ARROW = 386,                   /* ARROW  */
-    PERLY_PAREN_CLOSE = 387,       /* PERLY_PAREN_CLOSE  */
-    PERLY_PAREN_OPEN = 388         /* PERLY_PAREN_OPEN  */
+    OPTCHAIN = 387,                /* OPTCHAIN  */
+    PERLY_PAREN_CLOSE = 388,       /* PERLY_PAREN_CLOSE  */
+    PERLY_PAREN_OPEN = 389         /* PERLY_PAREN_OPEN  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -249,6 +250,6 @@ int yyparse (void);
 
 
 /* Generated from:
- * 783af8ff7ff42fd7313d85df8bbde58d7480e4964bb41ce7b92a5039a7286074 perly.y
+ * f3fb4ceaffd275b0be246dc28fbaf9745d0da7f5ef66556dc4b3a5d1cdab558d perly.y
  * f13e9c08cea6302f0c1d1f467405bd0e0880d0ea92d0669901017a7f7e94ab28 regen_perly.pl
  * ex: set ro ft=c: */
