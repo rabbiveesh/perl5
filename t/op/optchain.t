@@ -1,11 +1,10 @@
-use feature 'try';
-use strict;
-
 BEGIN {
   chdir 't' if -d 't';
   require './test.pl';
   set_up_inc('../lib');
 }
+use feature 'try';
+use strict;
 
 
 # basic test the parsing in all the covered cases

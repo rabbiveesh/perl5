@@ -10,64 +10,65 @@ sub opset (;@);
 sub opset_to_hex ($);
 sub opdump (;$);
 use subs our @EXPORT_OK = qw(
-  opset ops_to_opset
-  opset_to_ops opset_to_hex invert_opset
-  empty_opset full_opset
-  opdesc opcodes opmask define_optag
-  opmask_add verify_opset opdump
+	opset ops_to_opset
+	opset_to_ops opset_to_hex invert_opset
+	empty_opset full_opset
+	opdesc opcodes opmask define_optag
+	opmask_add verify_opset opdump
 );
 
 XSLoader::load();
 
 _init_optags();
 
-sub ops_to_opset { opset @_ }    # alias for old name
+sub ops_to_opset { opset @_ }	# alias for old name
 
 sub opset_to_hex ($) {
-    return "(invalid opset)" unless verify_opset( $_[0] );
-    unpack( "h*", $_[0] );
+    return "(invalid opset)" unless verify_opset($_[0]);
+    unpack("h*",$_[0]);
 }
 
 sub opdump (;$) {
-    my $pat = shift;
-
+	my $pat = shift;
     # handy utility: perl -MOpcode=opdump -e 'opdump File'
-    foreach ( opset_to_ops(full_opset) ) {
+    foreach(opset_to_ops(full_opset)) {
         my $op = sprintf "  %12s  %s\n", $_, opdesc($_);
-        next if defined $pat and $op !~ m/$pat/i;
-        print $op;
+		next if defined $pat and $op !~ m/$pat/i;
+		print $op;
     }
 }
+
+
 
 sub _init_optags {
-    my ( %all, %seen );
-    @all{ opset_to_ops(full_opset) } = ();    # keys only
+    my(%all, %seen);
+    @all{opset_to_ops(full_opset)} = (); # keys only
 
-    local ($_);
-    local ($/) = "\n=cut";    # skip to optags definition section
+    local($_);
+    local($/) = "\n=cut"; # skip to optags definition section
     <DATA>;
-    $/ = "\n=";               # now read in 'pod section' chunks
-    while (<DATA>) {
-        next unless m/^item\s+(:\w+)/;
-        my $tag = $1;
+    $/ = "\n=";		# now read in 'pod section' chunks
+    while(<DATA>) {
+	next unless m/^item\s+(:\w+)/;
+	my $tag = $1;
 
-        # Split into lines, keep only indented lines
-        my @lines = grep { m/^\s/ } split(/\n/);
-        foreach (@lines) { s/(?:\t|--).*// }    # delete comments
-        my @ops = map { split ' ' } @lines;     # get op words
+	# Split into lines, keep only indented lines
+	my @lines = grep { m/^\s/    } split(/\n/);
+	foreach (@lines) { s/(?:\t|--).*//  } # delete comments
+	my @ops   = map  { split ' ' } @lines; # get op words
 
-        foreach (@ops) {
-            warn "$tag - $_ already tagged in $seen{$_}\n" if $seen{$_};
-            $seen{$_} = $tag;
-            delete $all{$_};
-        }
-
-        # opset will croak on invalid names
-        define_optag( $tag, opset(@ops) );
+	foreach(@ops) {
+	    warn "$tag - $_ already tagged in $seen{$_}\n" if $seen{$_};
+	    $seen{$_} = $tag;
+	    delete $all{$_};
+	}
+	# opset will croak on invalid names
+	define_optag($tag, opset(@ops));
     }
     close(DATA);
-    warn "Untagged opnames: " . join( ' ', keys %all ) . "\n" if %all;
+    warn "Untagged opnames: ".join(' ',keys %all)."\n" if %all;
 }
+
 
 1;
 
