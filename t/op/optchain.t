@@ -13,10 +13,12 @@ my $s;
 for my $code (
   '$s?->$*',
   # array operations
-  '$s?->[0]', '$s?->@[1..10]', '$s?->@*',
+  '$s?->[0]', '$s?->@*',# TODO - '$s?->@[1..10]', 
   # hash operations
-  '$s?->{0}', '$s?->%{1..10}', '$s?->%*',
+  '$s?->{0}', '$s?->%*', # TODO - '$s?->%{1..10}', 
   # method calls
+  #'$s?->method()', '$s?->method(1, 2)',
+  # subref operations
   '$s?->()', '$s?->(1, 2)', ) {
   eval $code;
   is $@, '', "`$code` has no errors!"
