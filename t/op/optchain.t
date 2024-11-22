@@ -32,6 +32,8 @@ my $undef;
 $undef?->[0];
 is $undef, undef, 'no autovivification';
 
+
+
 my $ary = [ 1 ];
 is $ary?->[0], 1, 'arrayref access';
 
@@ -42,6 +44,15 @@ try {
   $did_we_die = $err;
 }
 is $did_we_die, undef, 'do not run ANY of the RHS if undef';
+$did_we_die = undef;
+
+try {
+  $undef?->[0][1];
+} catch ($err) {
+  $did_we_die = $err;
+}
+is $did_we_die, undef, 'we short-circuit even subscripted access';
+$did_we_die = undef;
 
 my $empty = '';
 is "$empty?->[0]", "?->[0]", 'optchain ignored during interpolation';
