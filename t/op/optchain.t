@@ -12,13 +12,16 @@ my $s;
 for my $code (
   '$s?->$*',
   # array operations
-  '$s?->[0]', '$s?->@*',# TODO - '$s?->@[1..10]', 
+  '$s?->[0]', '$s?->@*',# TODO - '$s?->@[1..10]', '$s?->$#*'
   # hash operations
   '$s?->{0}', '$s?->%*', # TODO - '$s?->%{1..10}', 
   # method calls
   #'$s?->method()', '$s?->method(1, 2)',
   # subref operations
-  '$s?->()', '$s?->(1, 2)', ) {
+  '$s?->()', '$s?->(1, 2)', # TODO - '$s?->&*'
+  # globref operations
+  # TODO - '$s?->**', '$s?->*{NAME}'
+) {
   eval $code;
   is $@, '', "`$code` has no errors!"
 }
@@ -42,5 +45,8 @@ is $did_we_die, undef, 'do not run ANY of the RHS if undef';
 
 my $empty = '';
 is "$empty?->[0]", "?->[0]", 'optchain ignored during interpolation';
+
+my @empty_ary = $undef?->@*;
+is $#empty_ary, -1, 'unrolling gives you empy list, not undef';
 
 done_testing();

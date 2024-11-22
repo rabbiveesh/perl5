@@ -1288,12 +1288,14 @@ listop	:	LSTOP indirob listexpr /* map {...} @args or print $fh @args */
 				op_prepend_elem(OP_LIST, newGVREF($FUNC,$indirob), $expr) );
 			}
 	|	term ARROW methodname PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo->bar(list) */
+        /* TODO-optchain method call */
 			{ $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
 				op_append_elem(OP_LIST,
 				    op_prepend_elem(OP_LIST, scalar($term), $optexpr),
 				    newMETHOP(OP_METHOD, 0, $methodname)));
 			}
 	|	term ARROW methodname                     /* $foo->bar */
+        /* TODO-optchain method call */
 			{ $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
 				op_append_elem(OP_LIST, scalar($term),
 				    newMETHOP(OP_METHOD, 0, $methodname)));
@@ -1693,9 +1695,11 @@ term[product]	:	termbinop
         |       term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_STAR
                         { $$ = newOPTCHAINOP(0, $operand, newHVREF(newOP(OP_NULL, 0))); }
 	|	term[operand] ARROW PERLY_AMPERSAND PERLY_STAR
+        /* TODO-optchain subref call postfix ampersand */
 			{ $$ = newUNOP(OP_ENTERSUB, 0,
 				       scalar(newCVREF($PERLY_AMPERSAND,$operand))); }
 	|	term[operand] ARROW PERLY_STAR PERLY_STAR	%prec PERLY_PAREN_OPEN
+        /* TODO-optchain globref postfix */
 			{ $$ = newGVREF(0,$operand); }
 	|	LOOPEX  /* loop exiting command (goto, last, dump, etc) */
 			{ $$ = newOP($LOOPEX, OPf_SPECIAL);
@@ -1901,6 +1905,7 @@ hsh	:	PERLY_PERCENT_SIGN indirob
 arylen	:	DOLSHARP indirob
 			{ $$ = newAVREF($indirob); }
 	|	term ARROW DOLSHARP PERLY_STAR
+        /*TODO-optchain postfix array len */
 			{ $$ = newAVREF($term); }
 	;
 
@@ -1910,16 +1915,21 @@ star	:	PERLY_STAR indirob
 
 sliceme	:	ary
 	|	term ARROW PERLY_SNAIL
+        /* TODO-optchain postfix slice; might be a bit complex + require making a whole
+         * different slice parse rule */
 			{ $$ = newAVREF($term); }
 	;
 
 kvslice	:	hsh
 	|	term ARROW PERLY_PERCENT_SIGN
+        /* TODO-optchain postfix keyval-slice; see above by sliceme */
 			{ $$ = newHVREF($term); }
 	;
 
 gelem	:	star
 	|	term ARROW PERLY_STAR
+        /* TODO-optchain postfix glob-deref; similar to sliceme, gotta hit the first rule
+         * of subcripted */
 			{ $$ = newGVREF(0,$term); }
 	;
 

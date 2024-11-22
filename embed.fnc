@@ -2471,6 +2471,9 @@ Cdp	|CV *	|newMYSUB	|I32 floor				\
 ARdp	|OP *	|newNULLLIST
 ARdp	|OP *	|newOP		|I32 optype				\
 				|I32 flags
+ARdpx	|OP *	|newOPTCHAINOP	|I32 flags				\
+				|NN OP *invocant			\
+				|NN OP *o
 ARTdpx	|PADNAMELIST *|newPADNAMELIST					\
 				|size_t max
 ARTdpx	|PADNAME *|newPADNAMEouter					\
@@ -2556,9 +2559,6 @@ ARdip	|SV *	|newSV_type	|const svtype type
 AIRdp	|SV *	|newSV_type_mortal					\
 				|const svtype type
 ARdp	|SV *	|newSVuv	|const UV u
-ARdpx   |OP *   |newOPTCHAINOP  |I32 flags                              \
-                                |NN OP *invocant                        \
-				|NN OP *o
 ARdpx	|OP *	|newTRYCATCHOP	|I32 flags				\
 				|NN OP *tryblock			\
 				|NN OP *catchvar			\
