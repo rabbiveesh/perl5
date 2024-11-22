@@ -5918,26 +5918,22 @@ PP(pp_leavetry)
 
 PP(pp_optchain)
 {
-    dSP;
-    SV *invocant = TOPs;
+    SV *invocant = PL_stack_sp[0];
 
     if(SvOK(invocant)) {
         /* if we've got an op_targ, they'll want the invocant in the pad */
         if(PL_op->op_targ) {
             SAVECLEARSV(PAD_SVl(PL_op->op_targ));
             SvSetSV(PAD_SVl(PL_op->op_targ), invocant);
-            (void)POPs;
-            PUTBACK;
         }
         return cLOGOP->op_other;
     }
 
-    (void)POPs;
+    rpp_popfree_1();
 
     /* we have to put a fresh undef on the stack in case we're returning an lvalue */
     if(GIMME_V == G_SCALAR)
-      PUSHs(&PL_sv_undef);
-    PUTBACK;
+      rpp_push_1(&PL_sv_undef);
 
     return NORMAL;
 }
