@@ -12,18 +12,18 @@ my $s;
 for my $code (
   '$s?->$*',
   # array operations
-  '$s?->[0]', '$s?->@*',# TODO - '$s?->@[1..10]', '$s?->$#*'
+  '$s?->[0]', '$s?->@*', '$s?->$#*',# TODO - '$s?->@[1..10]'
   # hash operations
   '$s?->{0}', '$s?->%*', # TODO - '$s?->%{1..10}', 
   # method calls
   #'$s?->method()', '$s?->method(1, 2)',
   # subref operations
-  '$s?->()', '$s?->(1, 2)', # TODO - '$s?->&*'
+  '$s?->()', '$s?->(1, 2)', '$s?->&*',
   # globref operations
-  # TODO - '$s?->**', '$s?->*{NAME}'
+  '$s?->**', # '$s?->*{NAME}'
 ) {
-  eval $code;
-  is $@, '', "`$code` has no errors!"
+  is eval $code, undef, "`$code` runs undef as expected";
+  is $@, '', "`$code` compiles!"
 }
 
 # array operations

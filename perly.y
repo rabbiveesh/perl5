@@ -1624,6 +1624,10 @@ term[product]	:	termbinop
 			{ $$ = $ary; }
 	|	arylen 	%prec PERLY_PAREN_OPEN                    /* $#x, $#{ something } */
 			{ $$ = newUNOP(OP_AV2ARYLEN, 0, ref($arylen, OP_AV2ARYLEN));}
+        |       term[operand] OPTCHAIN ARROW DOLSHARP PERLY_STAR           /* $something?->$#* */
+                        {  $$ = newOPTCHAINOP(0,  $operand,
+                                   newUNOP(OP_AV2ARYLEN, 0,
+                                     ref(newAVREF(newOP(OP_NULL, 0)), OP_AV2ARYLEN))); }
 	|       subscripted
 			{ $$ = $subscripted; }
 	|	sliceme PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE                     /* array slice */
@@ -1695,12 +1699,20 @@ term[product]	:	termbinop
         |       term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_STAR
                         { $$ = newOPTCHAINOP(0, $operand, newHVREF(newOP(OP_NULL, 0))); }
 	|	term[operand] ARROW PERLY_AMPERSAND PERLY_STAR
-        /* TODO-optchain subref call postfix ampersand */
 			{ $$ = newUNOP(OP_ENTERSUB, 0,
 				       scalar(newCVREF($PERLY_AMPERSAND,$operand))); }
+	|	term[operand] OPTCHAIN ARROW PERLY_AMPERSAND PERLY_STAR
+                        { 
+                        PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+                        $$ = newOPTCHAINOP(0, $operand, 
+                                             newUNOP(OP_ENTERSUB, OPf_STACKED,
+                                                     newCVREF($PERLY_AMPERSAND, newPADxVOP(OP_PADSV, 0, padix))));
+                        cUNOPx($$)->op_first->op_targ = padix;
+                        }
 	|	term[operand] ARROW PERLY_STAR PERLY_STAR	%prec PERLY_PAREN_OPEN
-        /* TODO-optchain globref postfix */
 			{ $$ = newGVREF(0,$operand); }
+	|	term[operand] OPTCHAIN ARROW PERLY_STAR PERLY_STAR	%prec PERLY_PAREN_OPEN
+			{ $$ = newOPTCHAINOP(0, $operand, newGVREF(0,newOP(OP_NULL, 0))); }
 	|	LOOPEX  /* loop exiting command (goto, last, dump, etc) */
 			{ $$ = newOP($LOOPEX, OPf_SPECIAL);
 			    PL_hints |= HINT_BLOCK_SCOPE; }
@@ -1905,7 +1917,6 @@ hsh	:	PERLY_PERCENT_SIGN indirob
 arylen	:	DOLSHARP indirob
 			{ $$ = newAVREF($indirob); }
 	|	term ARROW DOLSHARP PERLY_STAR
-        /*TODO-optchain postfix array len */
 			{ $$ = newAVREF($term); }
 	;
 
