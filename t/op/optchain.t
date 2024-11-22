@@ -21,6 +21,8 @@ for my $code (
   '$s?->()', '$s?->(1, 2)', '$s?->&*',
   # globref operations
   '$s?->**', # '$s?->*{NAME}'
+  # quick lvalue test
+  '$s?->[0] = 1'
 ) {
   is eval $code, undef, "`$code` runs undef as expected";
   is $@, '', "`$code` compiles!"
