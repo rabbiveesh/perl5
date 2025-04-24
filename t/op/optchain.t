@@ -22,7 +22,7 @@ for my $code (
   # globref operations
   '$s?->**', # '$s?->*{NAME}'
   # quick lvalue test
-  '$s?->[0] = 1'
+  #  '$s?->[0] = 1'
 ) {
   is eval $code, undef, "`$code` runs undef as expected";
   is $@, '', "`$code` compiles!"

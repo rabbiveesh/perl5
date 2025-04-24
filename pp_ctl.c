@@ -4314,7 +4314,7 @@ S_doeval_compile(pTHX_ U8 gimme, CV* outside, U32 seq, HV *hh)
         if (cop_fetch_label(oldcurcop, NULL, NULL)) {
             /* The label, if present, is the first entry on the chain. So rather
                than writing a blank label in front of it (which involves an
-               allocation), just use the next entry in the chain.  */
+               allocation), just use the next entry in the chain. */
             PL_compiling.cop_hints_hash
                 = cophh_copy(oldcurcop->cop_hints_hash->refcounted_he_next);
             /* Check the assumption that this removed the label.  */
@@ -5935,7 +5935,16 @@ PP(pp_optchain)
     if(GIMME_V == G_SCALAR)
       rpp_push_1(&PL_sv_undef);
 
-    return NORMAL;
+    /* TODO - Skip past all the operations that are part of the chained expression
+     * This is essential for nested accesses like $ary?->[0][1] 
+     * where we need to skip both [0] and [1] parts when $ary is undefined */
+    OP *next = PL_op->op_next;
+    // This ENTERSUB test is certainly wrong - try a different way
+    while (next && !(next->op_type == OP_ENTERSUB && (next->op_flags & OPf_SPECIAL))) {
+        next = next->op_next;
+    }
+
+    return next ? next : NORMAL;
 }
 
 PP(pp_entergiven)
