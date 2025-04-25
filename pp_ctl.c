@@ -5935,19 +5935,6 @@ PP(pp_optchain)
     if(GIMME_V == G_SCALAR)
       rpp_push_1(&PL_sv_undef);
 
-    /* TODO - Skip past all the operations that are part of the chained expression
-     * This is essential for nested accesses like $ary?->[0][1] 
-     * where we need to skip both [0] and [1] parts when $ary is undefined 
-     * this is the wrong place; maybe in finalize or optimize */
-    // if we do it late, we should safeguard so you can't run non-correctly threaded
-    // optchains
-    // at every node, if it contains
-    // OP *parent = PL_op->op_parent;
-    // // This ENTERSUB test is certainly wrong - try a different way
-    // while (parent && !(parent->op_type == OP_ENTERSUB && (parent->op_flags & OPf_SPECIAL))) {
-    //     parent = parent->op_parent;
-    // }
-
     return NORMAL;
 }
 

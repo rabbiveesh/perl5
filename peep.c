@@ -1175,35 +1175,13 @@ S_optimize_op(pTHX_ OP* o)
     }
 }
 
-/*
-=for apidoc fix_optchain
-
-This function fixes up the next pointer for OPTCHAIN ops, b/c of the sticky short-circuit
-behavior required. Since the tree is built bottom-up, we can't know during parsing where the
-end of a OPTCHAIN chain is, so we have to do it now.
-=cut
-*/
-
-void
-Perl_fix_optchain(pTHX_ OP* o)
-{
-    ENTER;
-    SAVEVPTR(PL_curcop);
-
-    S_fixup_optchain(o, o);
-    CvOPTCHAIN_NEEDS_FIX_off(PL_compcv);
-
-    LEAVE;
-}
-
 void S_fixup_optchain(OP *o, OP *bailout_to)
 {
-  switch (OpTYPE(o)) {
+  OP* first;
+  switch (o->op_type) {
     case OP_OPTCHAIN:
       o->op_next = bailout_to;
-      /* maybe recurse into it and do something? */
-      break;
-
+      // fallthrough
     case OP_AELEM:
     // ./perl -Ilib -MO=Concise,-tree,-vt -e '$x->[die][$y->[0]]'
     // <c>leave[1 ref]─┬─<1>enter
@@ -1221,12 +1199,12 @@ void S_fixup_optchain(OP *o, OP *bailout_to)
     case OP_EXISTS:
     case OP_MULTIDEREF:
     case OP_NULL:
-      OP *first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
+      first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
       if (first) {
           S_fixup_optchain(first, bailout_to);
           OP *next_sib = first;
-          while (next_sib = OpSIBLING(next_sib))
-          S_fixup_optchain(next_sib, next_sib->op_next);
+          while ((next_sib = OpSIBLING(next_sib)))
+              S_fixup_optchain(next_sib, next_sib);
       }
       break;
 
@@ -1274,16 +1252,38 @@ void S_fixup_optchain(OP *o, OP *bailout_to)
       
 
    default:
-      OP *first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
+      first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
       if (first) {
           S_fixup_optchain(first, first->op_next);
           OP *next_sib = first;
-          while (next_sib = OpSIBLING(next_sib))
-              S_fixup_optchain(next_sib, next_sib->op_next);
+          while ((next_sib = OpSIBLING(next_sib)))
+              S_fixup_optchain(next_sib, next_sib);
       }
       break;
   }
 }
+
+/*
+=for apidoc fix_optchain
+
+This function fixes up the next pointer for OPTCHAIN ops, b/c of the sticky short-circuit
+behavior required. Since the tree is built bottom-up, we can't know during parsing where the
+end of a OPTCHAIN chain is, so we have to do it now.
+=cut
+*/
+
+void
+Perl_fix_optchain(pTHX_ OP* o)
+{
+    ENTER;
+    SAVEVPTR(PL_curcop);
+
+    S_fixup_optchain(o, o);
+    CvOPTCHAIN_NEEDS_FIX_off(PL_compcv);
+
+    LEAVE;
+}
+
 
 /*
 =for apidoc finalize_optree

@@ -8363,6 +8363,13 @@ Perl_finalize_optree(pTHX_ OP *o)
         Perl_assert_aTHX; assert(o)
 
 PERL_CALLCONV void
+Perl_fix_optchain(pTHX_ OP *o)
+        Perl_attribute_nonnull_aTHX_
+        Perl_attribute_nonnull_(pTHX_1);
+# define PERL_ARGS_ASSERT_FIX_OPTCHAIN          \
+        assert(o)
+
+PERL_CALLCONV void
 Perl_optimize_optree(pTHX_ OP *o)
         Perl_attribute_nonnull_aTHX
         Perl_attribute_nonnull(pTHX_1);
