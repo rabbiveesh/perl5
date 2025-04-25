@@ -1247,7 +1247,7 @@ void S_fixup_optchain(OP *o, OP *bailout_to)
       break;
 
    case OP_SCOPE:
-      // handle methods and subs as needed
+      // handle the braces from evil things like ${ $but_why?->[0] }[0]
       break;
       
 

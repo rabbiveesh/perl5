@@ -2903,8 +2903,9 @@ S_process_optree(pTHX_ CV *cv, OP *optree, OP* start)
     optimize_optree(optree);
 
     // if we have an optchain in there somewhere, then fix up the short-circuits
-    if (CvOPTCHAIN_NEEDS_FIX(cv)) 
+    if (CvOPTCHAIN_NEEDS_FIX(PL_compcv)) {
         fix_optchain(optree);
+    }
 
     CALL_PEEP(*startp);
     finalize_optree(optree);
@@ -9721,6 +9722,8 @@ Perl_newCONDOP(pTHX_ I32 flags, OP *first, OP *trueop, OP *falseop)
 
 Constructs and returns a conditional execution expression that short-circuits on the definedness
 of the invocant
+
+=cut
 */
 
 OP *
