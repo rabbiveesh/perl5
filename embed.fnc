@@ -4440,6 +4440,7 @@ ETei	|void * |my_memrchr	|NN const char *s			\
 #if defined(PERL_CORE) || defined(PERL_USE_VOLATILE_API)
 Adp	|void	|finalize_optree|NN OP *o
 Adp	|void	|optimize_optree|NN OP *o
+Adp	|void	|fix_optchain	|NN OP *o
 #endif
 #if defined(PERL_DEBUG_READONLY_COW)
 p	|void	|sv_buf_to_ro	|NN SV *sv

@@ -1176,6 +1176,116 @@ S_optimize_op(pTHX_ OP* o)
 }
 
 /*
+=for apidoc fix_optchain
+
+This function fixes up the next pointer for OPTCHAIN ops, b/c of the sticky short-circuit
+behavior required. Since the tree is built bottom-up, we can't know during parsing where the
+end of a OPTCHAIN chain is, so we have to do it now.
+=cut
+*/
+
+void
+Perl_fix_optchain(pTHX_ OP* o)
+{
+    ENTER;
+    SAVEVPTR(PL_curcop);
+
+    S_fixup_optchain(o, o);
+    CvOPTCHAIN_NEEDS_FIX_off(PL_compcv);
+
+    LEAVE;
+}
+
+void S_fixup_optchain(OP *o, OP *bailout_to)
+{
+  switch (OpTYPE(o)) {
+    case OP_OPTCHAIN:
+      o->op_next = bailout_to;
+      /* maybe recurse into it and do something? */
+      break;
+
+    case OP_AELEM:
+    // ./perl -Ilib -MO=Concise,-tree,-vt -e '$x->[die][$y->[0]]'
+    // <c>leave[1 ref]─┬─<1>enter
+    //                 ├─<2>nextstate(main 1 -e:1)
+    //                 └─<b>aelem─┬─<9>rv2av[t4]───<8>aelem─┬─<5>rv2av[t2]───<4>rv2sv───<3>gv(*x)
+    //                            │                         └─<7>die[t1]───<6>pushmark
+    //                            └─ex-aelem───<a>multideref($y->[0])───ex-gv
+    //                            ^^ NOTE - this is its own target, so we only wanna hit
+    //                            the first kid 
+    case OP_HELEM:
+    case OP_RV2SV:
+    case OP_RV2CV:
+    case OP_RV2AV:
+    case OP_RV2HV:
+    case OP_EXISTS:
+    case OP_MULTIDEREF:
+    case OP_NULL:
+      OP *first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
+      if (first) {
+          S_fixup_optchain(first, bailout_to);
+          OP *next_sib = first;
+          while (next_sib = OpSIBLING(next_sib))
+          S_fixup_optchain(next_sib, next_sib->op_next);
+      }
+      break;
+
+   case OP_HSLICE:
+   case OP_KVHSLICE:
+   //./perl -Ilib -MO=Concise,-tree,-vt -e '@{ $possibly_undef?->[0] }{0..10}'
+   //<g>leave[1 ref]─┬─<1>enter
+   //                ├─<2>nextstate(main 1 -e:1)
+   //                └─<f>hslice─┬─<3>pushmark
+   //                            ├─<5>rv2av───<4>const(AV ARRAY)
+   //                            └─<e>rv2hv[t2]───<d>scope─┬─ex-nextstate(main 2 -e:1)
+   //                                                      └─<c>null───<7>optchain(other->8)─┬─ex-rv2sv───<6>gvsv(*possibly_undef)
+   //                                                                                        └─<b>aelem─┬─<9>rv2av[t1]───<8>null
+   //                                                                                                   └─<a>const(IV 0)
+   case OP_ASLICE:
+   case OP_KVASLICE:
+      // TODO - here, we need to pass our bailout over to the lastest sibling, and recurse
+      // as normal for the other members of the listop
+      //
+      break;
+   case OP_ENTERSUB:
+   // NOTE - method calls, we need to desced last AND 2nd to last
+   // ./perl -Ilib -MO=Concise,-tree,-vt -e '$herro->die->bopper'    
+   // <a>leave[1 ref]─┬─<1>enter
+   //                 ├─<2>nextstate(main 1 -e:1)
+   //                 └─<9>entersub[t2]─┬─<3>pushmark
+   //                                   ├─<7>entersub[t1]─┬─<4>pushmark
+   //                                   │                 ├─ex-rv2sv───<5>gvsv(*herro)
+   //                                   │                 └─<6>method_named(PV "die")
+   //                                   └─<8>method_named(PV "bopper")
+   // but subref calls we only need to descend last
+   // ./perl -Ilib -MO=Concise,-tree,-vt -e '$x->(die)->("fly")'
+   // <b>leave[1 ref]─┬─<1>enter
+   //                 ├─<2>nextstate(main 1 -e:1)
+   //                 └─<a>entersub[t3]───ex-list─┬─<3>pushmark
+   //                                             ├─<4>const(PV "fly")
+   //                                             └─ex-rv2cv───<9>entersub[t2]───ex-list─┬─<5>pushmark
+   //                                                                                    ├─<7>die[t1]───<6>pushmark
+   //                                                                                    └─ex-rv2cv───ex-rv2sv───<8>gvsv(*x)
+      break;
+
+   case OP_SCOPE:
+      // handle methods and subs as needed
+      break;
+      
+
+   default:
+      OP *first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
+      if (first) {
+          S_fixup_optchain(first, first->op_next);
+          OP *next_sib = first;
+          while (next_sib = OpSIBLING(next_sib))
+              S_fixup_optchain(next_sib, next_sib->op_next);
+      }
+      break;
+  }
+}
+
+/*
 =for apidoc finalize_optree
 
 This function finalizes the optree.  Should be called directly after

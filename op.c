@@ -2901,6 +2901,11 @@ S_process_optree(pTHX_ CV *cv, OP *optree, OP* start)
     optree->op_private |= OPpREFCOUNTED;
     OpREFCNT_set(optree, 1);
     optimize_optree(optree);
+
+    // if we have an optchain in there somewhere, then fix up the short-circuits
+    if (CvOPTCHAIN_NEEDS_FIX(cv)) 
+        fix_optchain(optree);
+
     CALL_PEEP(*startp);
     finalize_optree(optree);
     op_prune_chain_head(startp);
@@ -9723,6 +9728,19 @@ Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o)
 {
     // op padsv drops a lexical onto the stack
     // to store on the stack there's a padsv_store op
+    // $ary?->[0][1];
+    // $ary->[0]{thing};
+    // exists $ary->{thing}{stuff};
+    // $ary->[0][1][2] + 9001;
+    // sub thing ($stuff, $thing = $stuff?->[0]) { 'but why' }
+    // $x?->[ $y?->[0] ]
+    // vv this one is tricky; it's https://github.com/Perl/PPCs/issues/63 with all 4
+    // variations basically
+    // %{ $possibly_undef?->[0] }[0..10]
+
+    // benefit is it gives us a marker to decide which things need later fixup
+    // should make Cvs die a horrible and painful death if it's on - NO RUNNING FOR YOU
+    CvOPTCHAIN_NEEDS_FIX_on(PL_compcv);
     return newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
 }
 
