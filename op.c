@@ -2831,7 +2831,7 @@ Perl_check_hash_fields_and_hekify(pTHX_ UNOP *rop, SVOP *key_op, int real)
     check_fields =
             rop
          && (lexname = padnamelist_fetch(PL_comppad_name, rop->op_targ),
-             PadnameHasTYPE(lexname))
+             lexname && PadnameHasTYPE(lexname))
          && (fields = (GV**)hv_fetchs(PadnameTYPE(lexname), "FIELDS", FALSE))
          && isGV(*fields) && GvHV(*fields);
 
@@ -3474,10 +3474,14 @@ Perl_op_lvalue_flags(pTHX_ OP *o, I32 type, U32 flags)
         if (!type) /* local() */
             croak("Can't localize lexical variable %" PNf,
                               PNfARG(PAD_COMPNAME(o->op_targ)));
-        if (!(o->op_private & OPpLVAL_INTRO)
-         || (  type != OP_SASSIGN && type != OP_AASSIGN
-            && PadnameIsSTATE(PAD_COMPNAME_SV(o->op_targ))  ))
-            S_mark_padname_lvalue(aTHX_ PAD_COMPNAME_SV(o->op_targ));
+        {
+            PADNAME *pn = PAD_COMPNAME_SV(o->op_targ);
+            if (pn &&
+                (!(o->op_private & OPpLVAL_INTRO)
+                 || (  type != OP_SASSIGN && type != OP_AASSIGN
+                    && PadnameIsSTATE(pn)  )))
+                S_mark_padname_lvalue(aTHX_ pn);
+        }
         break;
 
     case OP_PUSHMARK:

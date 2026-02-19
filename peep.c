@@ -1210,40 +1210,31 @@ void S_fixup_optchain(OP *o, OP *bailout_to)
 
    case OP_HSLICE:
    case OP_KVHSLICE:
-   //./perl -Ilib -MO=Concise,-tree,-vt -e '@{ $possibly_undef?->[0] }{0..10}'
-   //<g>leave[1 ref]─┬─<1>enter
-   //                ├─<2>nextstate(main 1 -e:1)
-   //                └─<f>hslice─┬─<3>pushmark
-   //                            ├─<5>rv2av───<4>const(AV ARRAY)
-   //                            └─<e>rv2hv[t2]───<d>scope─┬─ex-nextstate(main 2 -e:1)
-   //                                                      └─<c>null───<7>optchain(other->8)─┬─ex-rv2sv───<6>gvsv(*possibly_undef)
-   //                                                                                        └─<b>aelem─┬─<9>rv2av[t1]───<8>null
-   //                                                                                                   └─<a>const(IV 0)
    case OP_ASLICE:
    case OP_KVASLICE:
-      // TODO - here, we need to pass our bailout over to the lastest sibling, and recurse
-      // as normal for the other members of the listop
-      //
+      // NOTE: for the @{ $x?->[0] }{0..10} case (optchain nested inside a slice's last child),
+      // the bailout_to propagation here may not be sufficient — the inner optchain would need
+      // to bail past the entire slice. That's a separate TODO.
+      // For the $x?->@[0,1] case (optchain wrapping the slice), this just needs to recurse
+      // into children so any nested optchains in index expressions get fixed up.
+      first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
+      if (first) {
+          S_fixup_optchain(first, first->op_next);
+          OP *next_sib = first;
+          while ((next_sib = OpSIBLING(next_sib)))
+              S_fixup_optchain(next_sib, next_sib);
+      }
       break;
    case OP_ENTERSUB:
-   // NOTE - method calls, we need to desced last AND 2nd to last
-   // ./perl -Ilib -MO=Concise,-tree,-vt -e '$herro->die->bopper'    
-   // <a>leave[1 ref]─┬─<1>enter
-   //                 ├─<2>nextstate(main 1 -e:1)
-   //                 └─<9>entersub[t2]─┬─<3>pushmark
-   //                                   ├─<7>entersub[t1]─┬─<4>pushmark
-   //                                   │                 ├─ex-rv2sv───<5>gvsv(*herro)
-   //                                   │                 └─<6>method_named(PV "die")
-   //                                   └─<8>method_named(PV "bopper")
-   // but subref calls we only need to descend last
-   // ./perl -Ilib -MO=Concise,-tree,-vt -e '$x->(die)->("fly")'
-   // <b>leave[1 ref]─┬─<1>enter
-   //                 ├─<2>nextstate(main 1 -e:1)
-   //                 └─<a>entersub[t3]───ex-list─┬─<3>pushmark
-   //                                             ├─<4>const(PV "fly")
-   //                                             └─ex-rv2cv───<9>entersub[t2]───ex-list─┬─<5>pushmark
-   //                                                                                    ├─<7>die[t1]───<6>pushmark
-   //                                                                                    └─ex-rv2cv───ex-rv2sv───<8>gvsv(*x)
+      // Recurse into children so nested optchains in method args get fixed up.
+      // For chained method calls ($x->foo->bar), the inner entersub is a child.
+      first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
+      if (first) {
+          S_fixup_optchain(first, first->op_next);
+          OP *next_sib = first;
+          while ((next_sib = OpSIBLING(next_sib)))
+              S_fixup_optchain(next_sib, next_sib);
+      }
       break;
 
    case OP_SCOPE:

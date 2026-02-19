@@ -1288,17 +1288,35 @@ listop	:	LSTOP indirob listexpr /* map {...} @args or print $fh @args */
 				op_prepend_elem(OP_LIST, newGVREF($FUNC,$indirob), $expr) );
 			}
 	|	term ARROW methodname PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo->bar(list) */
-        /* TODO-optchain method call */
 			{ $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
 				op_append_elem(OP_LIST,
 				    op_prepend_elem(OP_LIST, scalar($term), $optexpr),
 				    newMETHOP(OP_METHOD, 0, $methodname)));
 			}
+	|	term[invocant] OPTCHAIN ARROW methodname PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo?->bar(list) */
+			{
+			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  $$ = newOPTCHAINOP(0, $invocant,
+				   op_convert_list(OP_ENTERSUB, OPf_STACKED,
+				       op_append_elem(OP_LIST,
+					   op_prepend_elem(OP_LIST, scalar(newPADxVOP(OP_PADSV, 0, padix)), $optexpr),
+					   newMETHOP(OP_METHOD, 0, $methodname))));
+			  cUNOPx($$)->op_first->op_targ = padix;
+			}
 	|	term ARROW methodname                     /* $foo->bar */
-        /* TODO-optchain method call */
 			{ $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
 				op_append_elem(OP_LIST, scalar($term),
 				    newMETHOP(OP_METHOD, 0, $methodname)));
+			}
+	|	term[invocant] OPTCHAIN ARROW methodname  /* $foo?->bar */
+			{
+			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  $$ = newOPTCHAINOP(0, $invocant,
+				   op_convert_list(OP_ENTERSUB, OPf_STACKED,
+				       op_append_elem(OP_LIST,
+					   scalar(newPADxVOP(OP_PADSV, 0, padix)),
+					   newMETHOP(OP_METHOD, 0, $methodname))));
+			  cUNOPx($$)->op_first->op_targ = padix;
 			}
 	|       term ARROW PERLY_AMPERSAND subname[method] PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo->&bar(list) */
 			{ $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
@@ -1669,6 +1687,50 @@ term[product]	:	termbinop
 			  if ($$ && $kvslice)
 			      $$->op_private |=
 				  $kvslice->op_private & OPpSLICEWARNING;
+			}
+	|	term[operand] OPTCHAIN ARROW PERLY_SNAIL PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE   /* $aref?->@[0,1] */
+			{
+			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  $$ = newOPTCHAINOP(0, $operand,
+				   op_prepend_elem(OP_ASLICE,
+				       newOP(OP_PUSHMARK, 0),
+				       newLISTOP(OP_ASLICE, 0,
+					   list($expr),
+					   ref(newAVREF(newPADxVOP(OP_PADSV, 0, padix)), OP_ASLICE))));
+			  cUNOPx($$)->op_first->op_targ = padix;
+			}
+	|	term[operand] OPTCHAIN ARROW PERLY_SNAIL PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   /* $href?->@{a,b} */
+			{
+			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  $$ = newOPTCHAINOP(0, $operand,
+				   op_prepend_elem(OP_HSLICE,
+				       newOP(OP_PUSHMARK, 0),
+				       newLISTOP(OP_HSLICE, 0,
+					   list($expr),
+					   ref(newHVREF(newPADxVOP(OP_PADSV, 0, padix)), OP_HSLICE))));
+			  cUNOPx($$)->op_first->op_targ = padix;
+			}
+	|	term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE   /* $aref?->%[0,1] */
+			{
+			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  $$ = newOPTCHAINOP(0, $operand,
+				   op_prepend_elem(OP_KVASLICE,
+				       newOP(OP_PUSHMARK, 0),
+				       newLISTOP(OP_KVASLICE, 0,
+					   list($expr),
+					   ref(oopsAV(newHVREF(newPADxVOP(OP_PADSV, 0, padix))), OP_KVASLICE))));
+			  cUNOPx($$)->op_first->op_targ = padix;
+			}
+	|	term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   /* $href?->%{a,b} */
+			{
+			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  $$ = newOPTCHAINOP(0, $operand,
+				   op_prepend_elem(OP_KVHSLICE,
+				       newOP(OP_PUSHMARK, 0),
+				       newLISTOP(OP_KVHSLICE, 0,
+					   list($expr),
+					   ref(newHVREF(newPADxVOP(OP_PADSV, 0, padix)), OP_KVHSLICE))));
+			  cUNOPx($$)->op_first->op_targ = padix;
 			}
 	|	THING	%prec PERLY_PAREN_OPEN
 			{ $$ = $THING; }
