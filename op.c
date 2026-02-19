@@ -1888,6 +1888,21 @@ Perl_op_linklist(pTHX_ OP *o)
     }
 }
 
+/* Recursively clear op_next pointers in a subtree, allowing LINKLIST
+ * to re-thread from scratch.  Needed when transplanting an already-linked
+ * subtree into a new parent (e.g. lvalue optchain restructuring). */
+static void
+S_op_clear_opnext(OP *o)
+{
+    o->op_next = NULL;
+    if (o->op_flags & OPf_KIDS) {
+        OP *kid;
+        for (kid = cUNOPo->op_first; kid; kid = OpSIBLING(kid))
+            S_op_clear_opnext(kid);
+    }
+}
+#define op_clear_opnext(o) S_op_clear_opnext(o)
+
 
 static OP *
 S_scalarkids(pTHX_ OP *o)
@@ -9196,6 +9211,50 @@ Perl_newASSIGNOP(pTHX_ I32 flags, OP *left, I32 optype, OP *right)
         right->op_flags |= OPf_STACKED;
         return newBINOP(OP_NULL, flags, op_lvalue(scalar(left), OP_SASSIGN),
                 scalar(right));
+    }
+    else if (left->op_type == OP_NULL
+             && (left->op_flags & OPf_KIDS)
+             && cUNOPx(left)->op_first->op_type == OP_OPTCHAIN) {
+        /* $x?->{foo} = RHS  =>  short-circuit the entire assignment.
+         *
+         * Modify the optchain tree in-place: replace the deref child with
+         * a sassign(deref, right) so the entire assignment lives inside the
+         * optchain's "then" branch.  The invocant's exec chain is left
+         * untouched (important when it contains inner optchains).
+         *
+         * Tree transform:
+         *   BEFORE: null(optchain(invocant, deref))       = right
+         *   AFTER:  null(optchain(invocant, sassign_bkwd(deref, right)))
+         *
+         * Exec chain:
+         *   invocant → optchain ─defined─→ deref → right → sassign → null
+         *                        └─undef─→ bailout (set by fixup)
+         */
+        OP *null_wrapper = left;
+        OP *optchain_op = cUNOPx(null_wrapper)->op_first;
+        OP *invocant = cLOGOPx(optchain_op)->op_first;
+        OP *deref = OpSIBLING(invocant);
+
+        /* Detach deref from optchain — invocant stays in place */
+        op_sibling_splice(optchain_op, invocant, 1, NULL);
+
+        /* Clear deref's stale op_next (it pointed back to null_wrapper) */
+        op_clear_opnext(deref);
+
+        /* Build sassign with deref first (lvalue) and right second,
+         * using BACKWARDS so pp_sassign knows the stack has [lvalue, rhs] */
+        o = newBINOP(OP_SASSIGN, flags | (OPpASSIGN_BACKWARDS << 8),
+            op_lvalue(scalar(deref), OP_SASSIGN), scalar(right));
+
+        /* Splice sassign in as the optchain's second child */
+        op_sibling_splice(optchain_op, invocant, 0, o);
+
+        /* Fix exec chain: optchain's "then" branch starts at sassign */
+        cLOGOPx(optchain_op)->op_other = LINKLIST(o);
+        /* sassign chains back to null wrapper (end of "then" branch) */
+        o->op_next = null_wrapper;
+
+        return null_wrapper;
     }
     else {
         o = newBINOP(OP_SASSIGN, flags,
