@@ -1192,6 +1192,7 @@ S_is_optchain_deref_op(U16 type)
     case OP_AV2ARYLEN:
     case OP_MULTIDEREF:
     case OP_EXISTS:
+    case OP_DELETE:
     case OP_NULL:
     case OP_OPTCHAIN:
         return TRUE;

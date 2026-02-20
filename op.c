@@ -13428,27 +13428,55 @@ Perl_ck_delete(pTHX_ OP *o)
     o->op_private = 0;
     if (o->op_flags & OPf_KIDS) {
         OP * const kid = cUNOPo->op_first;
-        switch (kid->op_type) {
-        case OP_ASLICE:
-            o->op_flags |= OPf_SPECIAL;
-            /* FALLTHROUGH */
-        case OP_HSLICE:
-            o->op_private |= OPpSLICE;
-            break;
-        case OP_AELEM:
-            o->op_flags |= OPf_SPECIAL;
-            /* FALLTHROUGH */
-        case OP_HELEM:
-            break;
-        case OP_KVASLICE:
-            o->op_flags |= OPf_SPECIAL;
-            /* FALLTHROUGH */
-        case OP_KVHSLICE:
-            o->op_private |= OPpKVSLICE;
-            break;
-        default:
-            croak("delete argument is not a HASH or ARRAY "
-                             "element or slice");
+        if (kid->op_type == OP_NULL
+            && (kid->op_flags & OPf_KIDS)
+            && cUNOPx(kid)->op_first->op_type == OP_OPTCHAIN) {
+            /* delete $h?->{key} — look through the optchain wrapper */
+            OP *inner = OpSIBLING(cUNOPx(cUNOPx(kid)->op_first)->op_first);
+            switch (inner->op_type) {
+            case OP_AELEM:
+                o->op_flags |= OPf_SPECIAL;
+                /* FALLTHROUGH */
+            case OP_HELEM:
+                break;
+            default:
+                croak("delete argument is not a HASH or ARRAY "
+                                 "element or slice");
+            }
+            op_null(inner);
+            /* delete doesn't have OA_RETSCALAR, so the optchain
+             * inherits list context and pp_optchain would push nothing
+             * on bail-out.  Force scalar so it pushes undef instead.
+             * scalar() won't override already-set OPf_WANT, so set
+             * it directly on the optchain logop. */
+            {
+                OP *optchain = cUNOPx(kid)->op_first;
+                optchain->op_flags
+                    = (optchain->op_flags & ~OPf_WANT) | OPf_WANT_SCALAR;
+            }
+        } else {
+            switch (kid->op_type) {
+            case OP_ASLICE:
+                o->op_flags |= OPf_SPECIAL;
+                /* FALLTHROUGH */
+            case OP_HSLICE:
+                o->op_private |= OPpSLICE;
+                break;
+            case OP_AELEM:
+                o->op_flags |= OPf_SPECIAL;
+                /* FALLTHROUGH */
+            case OP_HELEM:
+                break;
+            case OP_KVASLICE:
+                o->op_flags |= OPf_SPECIAL;
+                /* FALLTHROUGH */
+            case OP_KVHSLICE:
+                o->op_private |= OPpKVSLICE;
+                break;
+            default:
+                croak("delete argument is not a HASH or ARRAY "
+                                 "element or slice");
+            }
         }
         if (kid->op_private & OPpLVAL_INTRO)
             o->op_private |= OPpLVAL_INTRO;
@@ -13639,6 +13667,18 @@ Perl_ck_exists(pTHX_ OP *o)
         }
         else if (kid->op_type == OP_AELEM)
             o->op_flags |= OPf_SPECIAL;
+        else if (kid->op_type == OP_NULL
+                 && (kid->op_flags & OPf_KIDS)
+                 && cUNOPx(kid)->op_first->op_type == OP_OPTCHAIN) {
+            /* exists $h?->{key} — look through the optchain wrapper */
+            OP *inner = OpSIBLING(cUNOPx(cUNOPx(kid)->op_first)->op_first);
+            if (inner->op_type == OP_AELEM)
+                o->op_flags |= OPf_SPECIAL;
+            else if (inner->op_type != OP_HELEM)
+                croak("exists argument is not a HASH or ARRAY "
+                                 "element or a subroutine");
+            op_null(inner);
+        }
         else if (kid->op_type != OP_HELEM)
             croak("exists argument is not a HASH or ARRAY "
                              "element or a subroutine");
