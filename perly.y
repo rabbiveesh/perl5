@@ -1371,6 +1371,10 @@ subscripted:    gelem PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   
                         /* In this and all the hash accessors, PERLY_SEMICOLON is
                          * provided by the tokeniser */
 			{ $$ = newBINOP(OP_GELEM, 0, $gelem, scalar($expr)); }
+	|	term[invocant] OPTCHAIN ARROW PERLY_STAR PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* $x?->*{IO} */
+			{ $$ = newOPTCHAINOP(0, $invocant,
+                                        newBINOP(OP_GELEM, 0, newGVREF(0, newOP(OP_NULL, 0)), scalar($expr)));
+			}
 	|	scalar[array] PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE          /* $array[$element] */
 			{ $$ = newBINOP(OP_AELEM, 0, oopsAV($array), scalar($expr));
 			}

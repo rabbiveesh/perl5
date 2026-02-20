@@ -23,7 +23,7 @@ for my $code (
   # subref operations
   '$s?->()', '$s?->(1, 2)', '$s?->&*',
   # globref operations
-  '$s?->**', # '$s?->*{NAME}'
+  '$s?->**', '$s?->*{NAME}',
   # quick lvalue test
   #  '$s?->[0] = 1'
 ) {
@@ -244,6 +244,18 @@ is $undef?->(1, 2), undef, 'coderef: undef call with args returns undef';
   my $rv = ($rv_h?->{a} = 55);
   is $rv, 55, 'lvalue: return value of assign';
   is $rv_h->{a}, 55, 'lvalue: assign took effect';
+}
+
+# --- glob member deref ---
+{
+  my $gref = \*STDOUT;
+  is ref($gref?->*{IO}), 'IO::File', 'gelem: defined access';
+
+  my $undef;
+  is $undef?->*{IO}, undef, 'gelem: undef access';
+
+  $undef?->*{IO};
+  is $undef, undef, 'gelem: no autovivification';
 }
 
 # --- eval string ---
