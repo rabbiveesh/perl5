@@ -9783,31 +9783,64 @@ Perl_newCONDOP(pTHX_ I32 flags, OP *first, OP *trueop, OP *falseop)
 /*
 =for apidoc newOPTCHAINOP
 
-Constructs and returns a conditional execution expression that short-circuits on the definedness
-of the invocant
+Constructs and returns a conditional execution expression that short-circuits
+on the definedness of the invocant.
+
+If the inner op tree C<o> contains a sentinel placeholder (an C<OP_NULL> with
+C<OPf_SPECIAL> set), it is replaced with a C<padsv> that the runtime uses to
+thread the invocant value into the correct position.  Grammar rules that need
+this use C<newOP(OP_NULL, OPf_SPECIAL)> where the invocant placeholder goes.
 
 =cut
 */
 
+/* Walk the op tree rooted at 'parent' looking for a sentinel OP_NULL with
+ * OPf_SPECIAL.  If 'replacement' is non-NULL, splice it into the sentinel's
+ * place and free the sentinel.  If 'replacement' is NULL, just probe for the
+ * sentinel without modifying the tree.  Returns TRUE if sentinel was found. */
+static bool
+S_optchain_replace_sentinel(pTHX_ OP *parent, OP *replacement)
+{
+    OP *kid, *prev = NULL;
+
+    for (kid = cUNOPx(parent)->op_first; kid; prev = kid, kid = OpSIBLING(kid)) {
+        if (kid->op_type == OP_NULL && (kid->op_flags & OPf_SPECIAL)) {
+            if (replacement) {
+                op_sibling_splice(parent, prev, 1, replacement);
+                op_free(kid);
+            }
+            return TRUE;
+        }
+        if (kid->op_flags & OPf_KIDS) {
+            if (S_optchain_replace_sentinel(aTHX_ kid, replacement))
+                return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 OP *
 Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o)
 {
-    // op padsv drops a lexical onto the stack
-    // to store on the stack there's a padsv_store op
-    // $ary?->[0][1];
-    // $ary->[0]{thing};
-    // exists $ary->{thing}{stuff};
-    // $ary->[0][1][2] + 9001;
-    // sub thing ($stuff, $thing = $stuff?->[0]) { 'but why' }
-    // $x?->[ $y?->[0] ]
-    // vv this one is tricky; it's https://github.com/Perl/PPCs/issues/63 with all 4
-    // variations basically
-    // %{ $possibly_undef?->[0] }[0..10]
+    OP *result;
 
-    // benefit is it gives us a marker to decide which things need later fixup
-    // should make Cvs die a horrible and painful death if it's on - NO RUNNING FOR YOU
     CvOPTCHAIN_NEEDS_FIX_on(PL_compcv);
-    return newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
+
+    /* If the inner tree contains a sentinel OP_NULL|OPf_SPECIAL, the grammar
+     * rule needs a pad slot to thread the invocant through entersub/slice ops.
+     * Allocate it here and replace the sentinel with a padsv. */
+    if (S_optchain_replace_sentinel(aTHX_ o, NULL)) {
+        PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
+        OP *padsv = newPADxVOP(OP_PADSV, 0, padix);
+        /* Re-walk to do the actual replacement (first call was a probe) */
+        S_optchain_replace_sentinel(aTHX_ o, scalar(padsv));
+        result = newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
+        cUNOPx(result)->op_first->op_targ = padix;
+    } else {
+        result = newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
+    }
+
+    return result;
 }
 
 /*
