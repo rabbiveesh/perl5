@@ -1175,104 +1175,29 @@ S_optimize_op(pTHX_ OP* o)
     }
 }
 
-void S_fixup_optchain(OP *o, OP *bailout_to)
+/* Is this op part of a dereference chain?  Used by the OP_OPTCHAIN
+ * peephole fixup to walk up the op tree and find the topmost deref op
+ * that the short-circuit should skip past. */
+static bool
+S_is_optchain_deref_op(U16 type)
 {
-  OP* first;
-  switch (o->op_type) {
-    case OP_OPTCHAIN:
-      o->op_next = bailout_to;
-      // fallthrough
+    switch (type) {
     case OP_AELEM:
-    // ./perl -Ilib -MO=Concise,-tree,-vt -e '$x->[die][$y->[0]]'
-    // <c>leave[1 ref]─┬─<1>enter
-    //                 ├─<2>nextstate(main 1 -e:1)
-    //                 └─<b>aelem─┬─<9>rv2av[t4]───<8>aelem─┬─<5>rv2av[t2]───<4>rv2sv───<3>gv(*x)
-    //                            │                         └─<7>die[t1]───<6>pushmark
-    //                            └─ex-aelem───<a>multideref($y->[0])───ex-gv
-    //                            ^^ NOTE - this is its own target, so we only wanna hit
-    //                            the first kid 
     case OP_HELEM:
-    case OP_RV2SV:
-    case OP_RV2CV:
     case OP_RV2AV:
     case OP_RV2HV:
-    case OP_EXISTS:
+    case OP_RV2SV:
+    case OP_RV2CV:
+    case OP_RV2GV:
+    case OP_AV2ARYLEN:
     case OP_MULTIDEREF:
+    case OP_EXISTS:
     case OP_NULL:
-      first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
-      if (first) {
-          S_fixup_optchain(first, bailout_to);
-          OP *next_sib = first;
-          while ((next_sib = OpSIBLING(next_sib)))
-              S_fixup_optchain(next_sib, next_sib);
-      }
-      break;
-
-   case OP_HSLICE:
-   case OP_KVHSLICE:
-   case OP_ASLICE:
-   case OP_KVASLICE:
-      // NOTE: for the @{ $x?->[0] }{0..10} case (optchain nested inside a slice's last child),
-      // the bailout_to propagation here may not be sufficient — the inner optchain would need
-      // to bail past the entire slice. That's a separate TODO.
-      // For the $x?->@[0,1] case (optchain wrapping the slice), this just needs to recurse
-      // into children so any nested optchains in index expressions get fixed up.
-      first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
-      if (first) {
-          S_fixup_optchain(first, first->op_next);
-          OP *next_sib = first;
-          while ((next_sib = OpSIBLING(next_sib)))
-              S_fixup_optchain(next_sib, next_sib);
-      }
-      break;
-   case OP_ENTERSUB:
-      // Recurse into children so nested optchains in method args get fixed up.
-      // For chained method calls ($x->foo->bar), the inner entersub is a child.
-      first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
-      if (first) {
-          S_fixup_optchain(first, first->op_next);
-          OP *next_sib = first;
-          while ((next_sib = OpSIBLING(next_sib)))
-              S_fixup_optchain(next_sib, next_sib);
-      }
-      break;
-
-   case OP_SCOPE:
-      // handle the braces from evil things like ${ $but_why?->[0] }[0]
-      break;
-      
-
-   default:
-      first = (o->op_flags & OPf_KIDS) ? cUNOPo->op_first : NULL;
-      if (first) {
-          S_fixup_optchain(first, first->op_next);
-          OP *next_sib = first;
-          while ((next_sib = OpSIBLING(next_sib)))
-              S_fixup_optchain(next_sib, next_sib);
-      }
-      break;
-  }
-}
-
-/*
-=for apidoc fix_optchain
-
-This function fixes up the next pointer for OPTCHAIN ops, b/c of the sticky short-circuit
-behavior required. Since the tree is built bottom-up, we can't know during parsing where the
-end of a OPTCHAIN chain is, so we have to do it now.
-=cut
-*/
-
-void
-Perl_fix_optchain(pTHX_ OP* o)
-{
-    ENTER;
-    SAVEVPTR(PL_curcop);
-
-    S_fixup_optchain(o, o);
-    CvOPTCHAIN_NEEDS_FIX_off(PL_compcv);
-
-    LEAVE;
+    case OP_OPTCHAIN:
+        return TRUE;
+    default:
+        return FALSE;
+    }
 }
 
 
@@ -3843,6 +3768,34 @@ Perl_rpeep(pTHX_ OP *o)
         case OP_HELEMEXISTSOR:
         case OP_ANYWHILE:
         case OP_CATCH:
+
+        case OP_OPTCHAIN:
+            /* Fix up the short-circuit target for optional chaining.
+             *
+             * After LINKLIST, op_next (the "undef" branch) points to the
+             * null wrapper created by newLOGOP.  But if the optchain result
+             * is used as a child of further deref ops (e.g., $x?->[0]{b}),
+             * those deref ops sit ABOVE the null wrapper in the tree and
+             * would incorrectly execute on undef.
+             *
+             * Walk up from the null wrapper via op_parent(), continuing as
+             * long as the current op is the first child of a deref-chain
+             * parent.  The topmost such op's op_next is the correct
+             * bail-out target: it skips the entire dereference chain.
+             */
+            if (o->op_type == OP_OPTCHAIN) {
+                OP *top = o->op_next; /* the null wrapper from newLOGOP */
+                OP *parent;
+
+                while ((parent = op_parent(top)) != NULL
+                    && cUNOPx(parent)->op_first == top
+                    && S_is_optchain_deref_op(parent->op_type))
+                {
+                    top = parent;
+                }
+
+                o->op_next = top->op_next;
+            }
 
         generic_logop:
 

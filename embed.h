@@ -2148,7 +2148,6 @@
 # endif /* defined(PERL_CORE) || defined(PERL_EXT) */
 # if defined(PERL_CORE) || defined(PERL_USE_VOLATILE_API)
 #   define finalize_optree(a)                   Perl_finalize_optree(aTHX_ a)
-#   define fix_optchain(a)                      Perl_fix_optchain(aTHX_ a)
 #   define optimize_optree(a)                   Perl_optimize_optree(aTHX_ a)
 # endif
 # if !defined(PERL_IMPLICIT_SYS)

@@ -160,8 +160,6 @@ See L<perlguts/Autoloading with XSUBs>.
                                     reference-counted stack */
 #define CVf_EVAL_COMPILED 0x400000 /* an eval CV is fully compiled */
 
-#define CVf_OPTCHAIN_NEEDS_FIX 0x800000 /* we need to flag CVs as needing optchain shortcircuit fixing */
-
 /* This symbol for optimised communication between toke.c and op.c: */
 #define CVf_BUILTIN_ATTRS	(CVf_NOWARN_AMBIGUOUS|CVf_LVALUE|CVf_ANONCONST)
 
@@ -295,9 +293,6 @@ Helper macro to turn off the C<CvREFCOUNTED_ANYSV> flag.
 #define CvEVAL_COMPILED_on(cv)  (CvFLAGS(cv) |= CVf_EVAL_COMPILED)
 #define CvEVAL_COMPILED_off(cv) (CvFLAGS(cv) &= ~CVf_EVAL_COMPILED)
 
-#define CvOPTCHAIN_NEEDS_FIX(cv)		(CvFLAGS(cv) & CVf_OPTCHAIN_NEEDS_FIX)
-#define CvOPTCHAIN_NEEDS_FIX_on(cv)		(CvFLAGS(cv) |= CVf_OPTCHAIN_NEEDS_FIX)
-#define CvOPTCHAIN_NEEDS_FIX_off(cv)		(CvFLAGS(cv) &= ~CVf_OPTCHAIN_NEEDS_FIX)
 
 /* Back-compat */
 #ifndef PERL_CORE

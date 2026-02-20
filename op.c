@@ -2916,12 +2916,6 @@ S_process_optree(pTHX_ CV *cv, OP *optree, OP* start)
     optree->op_private |= OPpREFCOUNTED;
     OpREFCNT_set(optree, 1);
     optimize_optree(optree);
-
-    // if we have an optchain in there somewhere, then fix up the short-circuits
-    if (CvOPTCHAIN_NEEDS_FIX(PL_compcv)) {
-        fix_optchain(optree);
-    }
-
     CALL_PEEP(*startp);
     finalize_optree(optree);
     op_prune_chain_head(startp);
