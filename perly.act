@@ -1192,7 +1192,7 @@ case 2: /* @1: %empty  */
   case 189: /* listop: term OPTCHAIN ARROW methodname PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE  */
 #line 1297 "perly.y"
                         {
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  (yyval.opval) = newOPTCHAINOP(0, (ps[-6].val.opval),
 				   op_convert_list(OP_ENTERSUB, OPf_STACKED,
 				       op_append_elem(OP_LIST,
@@ -1215,7 +1215,7 @@ case 2: /* @1: %empty  */
   case 191: /* listop: term OPTCHAIN ARROW methodname  */
 #line 1312 "perly.y"
                         {
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  (yyval.opval) = newOPTCHAINOP(0, (ps[-3].val.opval),
 				   op_convert_list(OP_ENTERSUB, OPf_STACKED,
 				       op_append_elem(OP_LIST,
@@ -1389,7 +1389,7 @@ case 2: /* @1: %empty  */
                         // this (and also in subref w/ args) is ugly, but it works - we thread a pad temp in order to
                         // put the invocant in the correct place in the stack; we'll have
                         // to consider better ways to do this
-                        PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+                        PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
                         (yyval.opval) = newOPTCHAINOP(0, (ps[-4].val.opval), 
                                              newUNOP(OP_ENTERSUB, OPf_STACKED,
                                                      newCVREF(0, newPADxVOP(OP_PADSV, 0, padix))));
@@ -1414,7 +1414,7 @@ case 2: /* @1: %empty  */
   case 215: /* subscripted: term OPTCHAIN ARROW PERLY_PAREN_OPEN expr PERLY_PAREN_CLOSE  */
 #line 1433 "perly.y"
                         {
-                          PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+                          PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
                           (yyval.opval) = newOPTCHAINOP(0, (ps[-5].val.opval),
                                              newUNOP(OP_ENTERSUB, OPf_STACKED, 
                                                      op_append_elem(OP_LIST, (ps[-1].val.opval),
@@ -1955,7 +1955,7 @@ case 2: /* @1: %empty  */
   case 297: /* term: term OPTCHAIN ARROW PERLY_SNAIL PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE  */
 #line 1692 "perly.y"
                         {
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  (yyval.opval) = newOPTCHAINOP(0, (ps[-6].val.opval),
 				   op_prepend_elem(OP_ASLICE,
 				       newOP(OP_PUSHMARK, 0),
@@ -1970,7 +1970,7 @@ case 2: /* @1: %empty  */
   case 298: /* term: term OPTCHAIN ARROW PERLY_SNAIL PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE  */
 #line 1703 "perly.y"
                         {
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  (yyval.opval) = newOPTCHAINOP(0, (ps[-7].val.opval),
 				   op_prepend_elem(OP_HSLICE,
 				       newOP(OP_PUSHMARK, 0),
@@ -1985,7 +1985,7 @@ case 2: /* @1: %empty  */
   case 299: /* term: term OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE  */
 #line 1714 "perly.y"
                         {
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  (yyval.opval) = newOPTCHAINOP(0, (ps[-6].val.opval),
 				   op_prepend_elem(OP_KVASLICE,
 				       newOP(OP_PUSHMARK, 0),
@@ -2000,7 +2000,7 @@ case 2: /* @1: %empty  */
   case 300: /* term: term OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE  */
 #line 1725 "perly.y"
                         {
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  (yyval.opval) = newOPTCHAINOP(0, (ps[-7].val.opval),
 				   op_prepend_elem(OP_KVHSLICE,
 				       newOP(OP_PUSHMARK, 0),
@@ -2094,7 +2094,7 @@ case 2: /* @1: %empty  */
   case 313: /* term: term OPTCHAIN ARROW PERLY_AMPERSAND PERLY_STAR  */
 #line 1767 "perly.y"
                         { 
-                        PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+                        PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
                         (yyval.opval) = newOPTCHAINOP(0, (ps[-4].val.opval), 
                                              newUNOP(OP_ENTERSUB, OPf_STACKED,
                                                      newCVREF((ps[-1].val.ival), newPADxVOP(OP_PADSV, 0, padix))));
@@ -2499,6 +2499,6 @@ case 2: /* @1: %empty  */
     
 
 /* Generated from:
- * 7037c95fb35d5eee5aad6e2102e2699820e4f94cb1bb7e7a99951a6e0ea4b661 perly.y
+ * 6c1f6beccfa3e18af5b8860444a152de4a06c7721f855c06080b8343889cc29f perly.y
  * f13e9c08cea6302f0c1d1f467405bd0e0880d0ea92d0669901017a7f7e94ab28 regen_perly.pl
  * ex: set ro ft=c: */

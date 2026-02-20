@@ -246,6 +246,31 @@ is $undef?->(1, 2), undef, 'coderef: undef call with args returns undef';
   is $rv_h->{a}, 55, 'lvalue: assign took effect';
 }
 
+# --- eval string ---
+{
+  my $x;
+  eval q{ $x?->foo };
+  is $@, '', 'eval string: method no parens compiles';
+
+  eval q{ $x?->foo() };
+  is $@, '', 'eval string: method with parens compiles';
+
+  eval q{ $x?->foo(1,2) };
+  is $@, '', 'eval string: method with args compiles';
+
+  # multiple evals with same method name (was use-after-free)
+  eval q{ $x?->bar() };
+  eval q{ $x?->bar() };
+  is $@, '', 'eval string: repeated method name no crash';
+
+  # non-method optchain in eval
+  eval q{ $x?->[0] };
+  is $@, '', 'eval string: aelem compiles';
+
+  eval q{ $x?->{a} };
+  is $@, '', 'eval string: helem compiles';
+}
+
 # --- interpolation ---
 {
   my $empty = '';

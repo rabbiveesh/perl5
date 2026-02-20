@@ -1295,7 +1295,7 @@ listop	:	LSTOP indirob listexpr /* map {...} @args or print $fh @args */
 			}
 	|	term[invocant] OPTCHAIN ARROW methodname PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo?->bar(list) */
 			{
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  $$ = newOPTCHAINOP(0, $invocant,
 				   op_convert_list(OP_ENTERSUB, OPf_STACKED,
 				       op_append_elem(OP_LIST,
@@ -1310,7 +1310,7 @@ listop	:	LSTOP indirob listexpr /* map {...} @args or print $fh @args */
 			}
 	|	term[invocant] OPTCHAIN ARROW methodname  /* $foo?->bar */
 			{
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  $$ = newOPTCHAINOP(0, $invocant,
 				   op_convert_list(OP_ENTERSUB, OPf_STACKED,
 				       op_append_elem(OP_LIST,
@@ -1414,7 +1414,7 @@ subscripted:    gelem PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   
                         // this (and also in subref w/ args) is ugly, but it works - we thread a pad temp in order to
                         // put the invocant in the correct place in the stack; we'll have
                         // to consider better ways to do this
-                        PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+                        PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
                         $$ = newOPTCHAINOP(0, $code_reference, 
                                              newUNOP(OP_ENTERSUB, OPf_STACKED,
                                                      newCVREF(0, newPADxVOP(OP_PADSV, 0, padix))));
@@ -1431,7 +1431,7 @@ subscripted:    gelem PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   
 			}
 	|	term[code_reference] OPTCHAIN ARROW PERLY_PAREN_OPEN expr PERLY_PAREN_CLOSE     /* $subref?->(@args) */
 			{
-                          PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+                          PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
                           $$ = newOPTCHAINOP(0, $code_reference,
                                              newUNOP(OP_ENTERSUB, OPf_STACKED, 
                                                      op_append_elem(OP_LIST, $expr,
@@ -1690,7 +1690,7 @@ term[product]	:	termbinop
 			}
 	|	term[operand] OPTCHAIN ARROW PERLY_SNAIL PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE   /* $aref?->@[0,1] */
 			{
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  $$ = newOPTCHAINOP(0, $operand,
 				   op_prepend_elem(OP_ASLICE,
 				       newOP(OP_PUSHMARK, 0),
@@ -1701,7 +1701,7 @@ term[product]	:	termbinop
 			}
 	|	term[operand] OPTCHAIN ARROW PERLY_SNAIL PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   /* $href?->@{a,b} */
 			{
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  $$ = newOPTCHAINOP(0, $operand,
 				   op_prepend_elem(OP_HSLICE,
 				       newOP(OP_PUSHMARK, 0),
@@ -1712,7 +1712,7 @@ term[product]	:	termbinop
 			}
 	|	term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE   /* $aref?->%[0,1] */
 			{
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  $$ = newOPTCHAINOP(0, $operand,
 				   op_prepend_elem(OP_KVASLICE,
 				       newOP(OP_PUSHMARK, 0),
@@ -1723,7 +1723,7 @@ term[product]	:	termbinop
 			}
 	|	term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   /* $href?->%{a,b} */
 			{
-			  PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+			  PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
 			  $$ = newOPTCHAINOP(0, $operand,
 				   op_prepend_elem(OP_KVHSLICE,
 				       newOP(OP_PUSHMARK, 0),
@@ -1765,7 +1765,7 @@ term[product]	:	termbinop
 				       scalar(newCVREF($PERLY_AMPERSAND,$operand))); }
 	|	term[operand] OPTCHAIN ARROW PERLY_AMPERSAND PERLY_STAR
                         { 
-                        PADOFFSET padix = pad_alloc(OP_OPTCHAIN, SVs_PADTMP);
+                        PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
                         $$ = newOPTCHAINOP(0, $operand, 
                                              newUNOP(OP_ENTERSUB, OPf_STACKED,
                                                      newCVREF($PERLY_AMPERSAND, newPADxVOP(OP_PADSV, 0, padix))));
