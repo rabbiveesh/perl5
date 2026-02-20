@@ -2900,6 +2900,13 @@ sub pp_exists {
 	return $self->maybe_parens_func($name,
 				$self->pp_rv2cv($op->first, 16), $cx, 16);
     }
+    # optchain: exists $x?->{a}
+    if ($op->first->name eq "null" && ($op->first->flags & OPf_KIDS)
+	&& $op->first->first->name eq "optchain")
+    {
+	return $self->maybe_parens_func($name,
+				$self->deparse($op->first, 16), $cx, 16);
+    }
     if ($op->flags & OPf_SPECIAL) {
 	# Array element, not hash element
 	return $self->maybe_parens_func($name,
@@ -2914,6 +2921,13 @@ sub pp_delete {
     my($op, $cx) = @_;
     my $arg;
     my $name = $self->keyword("delete");
+    # optchain: delete $x?->{a}
+    if ($op->first->name eq "null" && ($op->first->flags & OPf_KIDS)
+	&& $op->first->first->name eq "optchain")
+    {
+	return $self->maybe_parens_func($name,
+				$self->deparse($op->first, 16), $cx, 16);
+    }
     if ($op->private & (OPpSLICE|OPpKVSLICE)) {
 	if ($op->flags & OPf_SPECIAL) {
 	    # Deleting from an array, not a hash
@@ -3532,6 +3546,164 @@ sub logop {
 sub pp_and { logop(@_, "and", 3, "&&", 11, "if") }
 sub pp_or  { logop(@_, "or",  2, "||", 10, "unless") }
 sub pp_dor { logop(@_, "//", 10) }
+
+sub pp_optchain {
+    my $self = shift;
+    my($op, $cx) = @_;
+    my $invocant = $self->deparse($op->first, 24);
+    my $chain = $op->first->sibling;
+
+    # Get the effective op name (seeing through nullification)
+    my $name = $chain->name;
+    if ($name eq "null" && class($chain) ne "OP") {
+	my $targ = $chain->targ;
+	$name = substr(B::ppname($targ), 3) if $targ;
+    }
+
+    if ($name eq "rv2sv") {
+	return "$invocant?\->\$*";
+    }
+    elsif ($name eq "rv2av") {
+	return "$invocant?\->\@*";
+    }
+    elsif ($name eq "rv2hv") {
+	return "$invocant?\->%*";
+    }
+    elsif ($name eq "rv2gv") {
+	return "$invocant?\->**";
+    }
+    elsif ($name eq "av2arylen") {
+	return "$invocant?\->\$#*";
+    }
+    elsif ($name eq "gelem") {
+	my $member = $self->deparse($chain->first->sibling, 1);
+	return "$invocant?\->*{$member}";
+    }
+    elsif ($name eq "entersub") {
+	return $self->_optchain_entersub($invocant, $chain, $cx);
+    }
+    elsif ($name =~ /^(?:kv)?[ah]slice$/) {
+	return $self->_optchain_slice($invocant, $chain, $cx);
+    }
+    elsif ($name eq "sassign") {
+	# lvalue optchain: $x?->{foo} = 42
+	# sassign's first child is the target, first->sibling is the RHS
+	my $target = $chain->first;
+	my $rhs = $target->sibling;
+	my $target_text = $self->_optchain_target($target);
+	my $rhs_text = $self->deparse($rhs, 7);
+	return $self->maybe_parens(
+	    "$invocant?\->$target_text = $rhs_text", $cx, 7);
+    }
+    elsif ($name eq "aelem" || $name eq "helem") {
+	# Check if wrapped multideref or direct elem (exists/delete)
+	my $chain_text;
+	my $first_kid = (class($chain) ne "OP") ? $chain->first : undef;
+	if ($first_kid && $first_kid->name eq "multideref") {
+	    $chain_text = $self->pp_multideref($first_kid, 24);
+	} else {
+	    my $method = ($name eq "aelem") ? \&pp_aelem : \&pp_helem;
+	    $chain_text = $method->($self, $chain, 24);
+	}
+	$chain_text =~ s/^->//;
+	return "$invocant?\->$chain_text";
+    }
+    else {
+	# Fallback: deparse chain and prepend
+	my $chain_text = $self->deparse($chain, 24);
+	$chain_text =~ s/^->//;
+	return "$invocant?\->$chain_text";
+    }
+}
+
+sub _optchain_entersub {
+    my($self, $invocant, $op, $cx) = @_;
+
+    # Method call: first->sibling is not null
+    unless (null $op->first->sibling) {
+	my ($info) = $self->_method($op, $cx);
+	my $meth = $info->{method};
+	$meth = $self->deparse($meth, 1) if $info->{variable_method};
+	my $args = join(", ", map { $self->deparse($_, 6) }
+			      @{$info->{args}});
+	if (length $args) {
+	    return "$invocant?\->$meth($args)";
+	}
+	return "$invocant?\->$meth";
+    }
+
+    # Non-method: collect args and determine if &* deref or coderef call
+    my $kid = $op->first;
+    $kid = $kid->first->sibling; # skip ex-list, pushmark
+    my @exprs;
+    for (; not null $kid->sibling; $kid = $kid->sibling) {
+	push @exprs, $kid;
+    }
+    # $kid is the last non-null child.
+    # For $x?->(), it's ex-rv2cv wrapping the pad ref.
+    # For $x?->&*, it's the bare pad ref (padsv).
+    my $last_is_rv2cv = ($kid->name eq "null" && class($kid) ne "OP"
+			 && $kid->targ
+			 && substr(B::ppname($kid->targ), 3) eq "rv2cv");
+    if (!$last_is_rv2cv && !@exprs) {
+	return "$invocant?\->&*";
+    }
+    my $args = join(", ", map { $self->deparse($_, 6) } @exprs);
+    return "$invocant?\->($args)";
+}
+
+sub _optchain_slice {
+    my($self, $invocant, $op, $cx) = @_;
+
+    my $name = $op->name;
+    my $is_kv = ($name =~ /^kv/);
+    my $is_hash = ($name =~ /h/);
+    my $lead = $is_kv ? '%' : '@';
+    my ($left, $right) = $is_hash ? ('{', '}') : ('[', ']');
+
+    my $kid = $op->first->sibling; # skip pushmark
+    my @elems;
+    if ($kid->name eq "list" || ($kid->name eq "null"
+	&& class($kid) ne "OP" && $kid->first
+	&& $kid->first->name eq "pushmark"))
+    {
+	# list of indices/keys
+	my $k = $kid->first;
+	$k = $k->sibling if $k->name eq "pushmark"
+			  || ($k->name eq "null" && !$k->targ);
+	for (; !null $k; $k = $k->sibling) {
+	    push @elems, $self->deparse($k, 6);
+	}
+    }
+    else {
+	push @elems, $self->elem_or_slice_single_index($kid);
+    }
+    my $list = join(", ", @elems);
+
+    return "$invocant?\->$lead$left$list$right";
+}
+
+sub _optchain_target {
+    my($self, $target) = @_;
+    # The target is ex-helem/ex-aelem wrapping multideref, or direct elem.
+    # Returns just the subscript part (e.g., "{'foo'}" or "[0]").
+    my $text;
+    my $target_name = $target->name;
+    if ($target_name eq "null" && class($target) ne "OP") {
+	$target_name = substr(B::ppname($target->targ), 3) if $target->targ;
+    }
+    my $first_kid = (class($target) ne "OP") ? $target->first : undef;
+    if ($first_kid && $first_kid->name eq "multideref") {
+	$text = $self->pp_multideref($first_kid, 24);
+    } elsif ($target_name eq "aelem" || $target_name eq "helem") {
+	my $method = ($target_name eq "aelem") ? \&pp_aelem : \&pp_helem;
+	$text = $method->($self, $target, 24);
+    } else {
+	$text = $self->deparse($target, 24);
+    }
+    $text =~ s/^->//;
+    return $text;
+}
 
 sub pp_xor {
     my $self = shift;

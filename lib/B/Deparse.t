@@ -3659,3 +3659,87 @@ elsif ($y) {
 }
 >>>>
 {;};
+####
+# optchain: array element
+my $x;
+$x?->[0];
+####
+# optchain: hash element
+my $x;
+$x?->{'a'};
+####
+# optchain: scalar deref
+my $x;
+$x?->$*;
+####
+# optchain: array deref
+my $x;
+$x?->@*;
+####
+# optchain: hash deref
+my $x;
+$x?->%*;
+####
+# optchain: glob deref
+my $x;
+$x?->**;
+####
+# optchain: arylen
+my $x;
+$x?->$#*;
+####
+# optchain: gelem
+my $x;
+$x?->*{'NAME'};
+####
+# optchain: method call no args
+my $x;
+$x?->foo;
+####
+# optchain: method call with args
+my $x;
+$x?->foo(1, 2);
+####
+# optchain: coderef call no args
+my $x;
+$x?->();
+####
+# optchain: coderef call with args
+my $x;
+$x?->(1, 2);
+####
+# optchain: coderef deref
+my $x;
+$x?->&*;
+####
+# optchain: array slice
+my $x;
+$x?->@[0, 1];
+####
+# optchain: hash slice
+my $x;
+$x?->@{'a', 'b'};
+####
+# optchain: kv array slice
+my $x;
+$x?->%[0, 1];
+####
+# optchain: kv hash slice
+my $x;
+$x?->%{'a', 'b'};
+####
+# optchain: exists hash
+my $x;
+exists $x?->{'a'};
+####
+# optchain: delete hash
+my $x;
+delete $x?->{'a'};
+####
+# optchain: lvalue hash assign
+my $x;
+$x?->{'foo'} = 42;
+####
+# optchain: chained
+my $x;
+$x?->{'a'}?->[0];

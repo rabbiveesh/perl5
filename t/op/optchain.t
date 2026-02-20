@@ -169,11 +169,11 @@ is $undef?->(1, 2), undef, 'coderef: undef call with args returns undef';
 {
   is $undef?->[$undef?->[0]], undef, 'nested: outer undef skips everything';
 
-  # TODO - nested optchain in index expression has fixup issues:
-  #   $outer?->[$inner?->[0]] where $inner=[5] should give $outer->[5]
-  #   $outer?->[$undef?->[0]] should give $outer->[undef] i.e. $outer->[0]
-  # These need the fixup to correctly propagate bailout through the inner
-  # optchain when it's a sibling in the aelem tree.
+  # nested optchain in index expression
+  my $outer = [10, 20, 30, 40, 50, 60];
+  my $inner = [5];
+  is $outer?->[$inner?->[0]], 60, 'nested: inner optchain as index';
+  is $outer?->[$undef?->[0]], 10, 'nested: inner undef gives $outer->[0]';
 }
 
 # --- method calls ---
