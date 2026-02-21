@@ -9780,52 +9780,17 @@ Perl_newCONDOP(pTHX_ I32 flags, OP *first, OP *trueop, OP *falseop)
 Constructs and returns a conditional execution expression that short-circuits
 on the definedness of the invocant.
 
-If the inner op tree C<o> contains a sentinel placeholder (an C<OP_NULL> with
-C<OPf_SPECIAL> set), it is replaced with a C<padsv> that the runtime uses to
-thread the invocant value into the correct position.  Grammar rules that need
-this use C<newOP(OP_NULL, OPf_SPECIAL)> where the invocant placeholder goes.
+The grammar allocates a pad slot for the invocant and places a C<padsv> op
+in the inner tree C<o> where the invocant value needs to appear at runtime.
+The C<padix> parameter is the pad offset of that slot.
 
 =cut
 */
 
-/* Walk the op tree rooted at 'parent' looking for a sentinel OP_NULL with
- * OPf_SPECIAL.  If 'replacement' is non-NULL, splice it into the sentinel's
- * place and free the sentinel.  If 'replacement' is NULL, just probe for the
- * sentinel without modifying the tree.  Returns TRUE if sentinel was found. */
-static bool
-S_optchain_replace_sentinel(pTHX_ OP *parent, OP *replacement)
-{
-    OP *kid, *prev = NULL;
-
-    for (kid = cUNOPx(parent)->op_first; kid; prev = kid, kid = OpSIBLING(kid)) {
-        if (kid->op_type == OP_NULL && (kid->op_flags & OPf_SPECIAL)) {
-            if (replacement) {
-                op_sibling_splice(parent, prev, 1, replacement);
-                op_free(kid);
-            }
-            return TRUE;
-        }
-        if (kid->op_flags & OPf_KIDS) {
-            if (S_optchain_replace_sentinel(aTHX_ kid, replacement))
-                return TRUE;
-        }
-    }
-    return FALSE;
-}
-
 OP *
-Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o)
+Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o, PADOFFSET padix)
 {
-    OP *result;
-    PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
-    OP *padsv = newPADxVOP(OP_PADSV, 0, padix);
-
-    /* Every grammar rule places an OP_NULL|OPf_SPECIAL sentinel where the
-     * invocant value needs to appear at runtime.  Replace it with a padsv
-     * that pp_optchain will populate from the invocant. */
-    S_optchain_replace_sentinel(aTHX_ o, scalar(padsv));
-
-    result = newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
+    OP *result = newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
     cUNOPx(result)->op_first->op_targ = padix;
 
     return result;

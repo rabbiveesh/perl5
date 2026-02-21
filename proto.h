@@ -3896,7 +3896,7 @@ Perl_newOP(pTHX_ I32 optype, I32 flags)
         Perl_assert_aTHX
 
 PERL_CALLCONV OP *
-Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o)
+Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o, PADOFFSET padix)
         Perl_attribute_nonnull_aTHX_
         Perl_attribute_nonnull_(pTHX_2)
         Perl_attribute_nonnull_(pTHX_3)

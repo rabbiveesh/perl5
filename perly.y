@@ -143,6 +143,7 @@
 %type <ival>  sigslurpsigil sigvar
 %type <opval> sigscalarelem optsigscalardefault sigslurpelem
 %type <ival>  optcolon
+%type <ival>  arrow optarrow
 %type <opval> sigelem siglist optsiglist subsigguts subsignature optsubsignature
 %type <opval> subbody optsubbody sigsubbody optsigsubbody
 %type <opval> formstmtseq formline formarg
@@ -1287,30 +1288,22 @@ listop	:	LSTOP indirob listexpr /* map {...} @args or print $fh @args */
 			{ $$ = op_convert_list($FUNC, OPf_STACKED,
 				op_prepend_elem(OP_LIST, newGVREF($FUNC,$indirob), $expr) );
 			}
-	|	term ARROW methodname PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo->bar(list) */
-			{ $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
-				op_append_elem(OP_LIST,
-				    op_prepend_elem(OP_LIST, scalar($term), $optexpr),
-				    newMETHOP(OP_METHOD, 0, $methodname)));
+	|	term[invocant] arrow methodname PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo->bar(list) or $foo?->bar(list) */
+			{ OP *base = $arrow
+			    ? scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$arrow)) : (OP *)$invocant;
+			  $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
+			      op_append_elem(OP_LIST,
+			          op_prepend_elem(OP_LIST, scalar(base), $optexpr),
+			          newMETHOP(OP_METHOD, 0, $methodname)));
+			  if ($arrow) $$ = newOPTCHAINOP(0, $invocant, $$, (PADOFFSET)$arrow);
 			}
-	|	term[invocant] OPTCHAIN ARROW methodname PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo?->bar(list) */
-			{ $$ = newOPTCHAINOP(0, $invocant,
-				   op_convert_list(OP_ENTERSUB, OPf_STACKED,
-				       op_append_elem(OP_LIST,
-					   op_prepend_elem(OP_LIST, scalar(newOP(OP_NULL, OPf_SPECIAL)), $optexpr),
-					   newMETHOP(OP_METHOD, 0, $methodname))));
-			}
-	|	term ARROW methodname                     /* $foo->bar */
-			{ $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
-				op_append_elem(OP_LIST, scalar($term),
-				    newMETHOP(OP_METHOD, 0, $methodname)));
-			}
-	|	term[invocant] OPTCHAIN ARROW methodname  /* $foo?->bar */
-			{ $$ = newOPTCHAINOP(0, $invocant,
-				   op_convert_list(OP_ENTERSUB, OPf_STACKED,
-				       op_append_elem(OP_LIST,
-					   scalar(newOP(OP_NULL, OPf_SPECIAL)),
-					   newMETHOP(OP_METHOD, 0, $methodname))));
+	|	term[invocant] arrow methodname           /* $foo->bar or $foo?->bar */
+			{ OP *base = $arrow
+			    ? scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$arrow)) : (OP *)$invocant;
+			  $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
+			      op_append_elem(OP_LIST, scalar(base),
+			          newMETHOP(OP_METHOD, 0, $methodname)));
+			  if ($arrow) $$ = newOPTCHAINOP(0, $invocant, $$, (PADOFFSET)$arrow);
 			}
 	|       term ARROW PERLY_AMPERSAND subname[method] PERLY_PAREN_OPEN optexpr PERLY_PAREN_CLOSE /* $foo->&bar(list) */
 			{ $$ = op_convert_list(OP_ENTERSUB, OPf_STACKED,
@@ -1355,6 +1348,14 @@ listop	:	LSTOP indirob listexpr /* map {...} @args or print $fh @args */
 			}
 	;
 
+/* Arrow operator: -> or ?-> (optional chaining) */
+arrow	:	ARROW		{ $$ = 0; }
+	|	OPTCHAIN ARROW	{ $$ = (I32)pad_add_name_pvs("$<optchain>", 0, NULL, NULL); }
+	;
+
+optarrow:	OPTCHAIN ARROW	{ $$ = (I32)pad_add_name_pvs("$<optchain>", 0, NULL, NULL); }
+	;
+
 /* Names of methods. May use $object->$methodname */
 methodname:	METHCALL0
 	|	scalar
@@ -1365,21 +1366,21 @@ subscripted:    gelem PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   
                         /* In this and all the hash accessors, PERLY_SEMICOLON is
                          * provided by the tokeniser */
 			{ $$ = newBINOP(OP_GELEM, 0, $gelem, scalar($expr)); }
-	|	term[invocant] OPTCHAIN ARROW PERLY_STAR PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* $x?->*{IO} */
+	|	term[invocant] optarrow PERLY_STAR PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* $x?->*{IO} */
 			{ $$ = newOPTCHAINOP(0, $invocant,
-                                        newBINOP(OP_GELEM, 0, newGVREF(0, newOP(OP_NULL, OPf_SPECIAL)), scalar($expr)));
+                                        newBINOP(OP_GELEM, 0, newGVREF(0, scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow))), scalar($expr)),
+                                        (PADOFFSET)$optarrow);
 			}
 	|	scalar[array] PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE          /* $array[$element] */
 			{ $$ = newBINOP(OP_AELEM, 0, oopsAV($array), scalar($expr));
 			}
-	|	term[array_reference] ARROW PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE      /* somearef->[$element] */
-			{ $$ = newBINOP(OP_AELEM, 0,
-					ref(newAVREF($array_reference),OP_RV2AV),
-					scalar($expr));
-			}
-	|	term[array_reference] OPTCHAIN ARROW PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE      /* somearef?->[$element] */
-			{ $$ = newOPTCHAINOP(0, $array_reference,
-                                        newBINOP(OP_AELEM, 0, ref(newAVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_RV2AV), scalar($expr)));
+	|	term[array_reference] arrow PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE      /* somearef->[$element] or somearef?->[$element] */
+			{ OP *base = $arrow
+			    ? scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$arrow)) : (OP *)$array_reference;
+			  $$ = newBINOP(OP_AELEM, 0,
+			      ref(newAVREF(base), OP_RV2AV),
+			      scalar($expr));
+			  if ($arrow) $$ = newOPTCHAINOP(0, $array_reference, $$, (PADOFFSET)$arrow);
 			}
 	|	subscripted[array_reference] PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE    /* $foo->[$bar][$baz] */
 			{ $$ = newBINOP(OP_AELEM, 0,
@@ -1389,43 +1390,34 @@ subscripted:    gelem PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   
 	|	scalar[hash] PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE    /* $foo{bar();} */
 			{ $$ = newBINOP(OP_HELEM, 0, oopsHV($hash), jmaybe($expr));
 			}
-	|	term[hash_reference] ARROW PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* somehref->{bar();} */
-			{ $$ = newBINOP(OP_HELEM, 0,
-					ref(newHVREF($hash_reference),OP_RV2HV),
-					jmaybe($expr)); }
-	|	term[hash_reference] OPTCHAIN ARROW PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* somehref?->{bar();} */
-			{ $$ = newOPTCHAINOP(0, $hash_reference,
-                                        newBINOP(OP_HELEM, 0, ref(newHVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_RV2HV), jmaybe($expr)));
-                        }
+	|	term[hash_reference] arrow PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* somehref->{bar();} or somehref?->{bar();} */
+			{ OP *base = $arrow
+			    ? scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$arrow)) : (OP *)$hash_reference;
+			  $$ = newBINOP(OP_HELEM, 0,
+			      ref(newHVREF(base), OP_RV2HV),
+			      jmaybe($expr));
+			  if ($arrow) $$ = newOPTCHAINOP(0, $hash_reference, $$, (PADOFFSET)$arrow);
+			}
 	|	subscripted[hash_reference] PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* $foo->[bar]{baz;} */
 			{ $$ = newBINOP(OP_HELEM, 0,
 					ref(newHVREF($hash_reference),OP_RV2HV),
 					jmaybe($expr)); }
-	|	term[code_reference] ARROW PERLY_PAREN_OPEN PERLY_PAREN_CLOSE          /* $subref->() */
-			{ $$ = newUNOP(OP_ENTERSUB, OPf_STACKED,
-				   newCVREF(0, scalar($code_reference)));
+	|	term[code_reference] arrow PERLY_PAREN_OPEN PERLY_PAREN_CLOSE          /* $subref->() or $subref?->() */
+			{ OP *base = $arrow
+			    ? scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$arrow)) : scalar($code_reference);
+			  $$ = newUNOP(OP_ENTERSUB, OPf_STACKED,
+			      newCVREF(0, base));
+			  if ($arrow) $$ = newOPTCHAINOP(0, $code_reference, $$, (PADOFFSET)$arrow);
 			  if (parser->expect == XBLOCK)
 			      parser->expect = XOPERATOR;
 			}
-	|	term[code_reference] OPTCHAIN ARROW PERLY_PAREN_OPEN PERLY_PAREN_CLOSE          /* $subref?->() */
-			{ $$ = newOPTCHAINOP(0, $code_reference,
-				   newUNOP(OP_ENTERSUB, OPf_STACKED,
-					   newCVREF(0, newOP(OP_NULL, OPf_SPECIAL))));
-			  if (parser->expect == XBLOCK)
-			      parser->expect = XOPERATOR;
-			}
-	|	term[code_reference] ARROW PERLY_PAREN_OPEN expr PERLY_PAREN_CLOSE     /* $subref->(@args) */
-			{ $$ = newUNOP(OP_ENTERSUB, OPf_STACKED,
-				   op_append_elem(OP_LIST, $expr,
-				       newCVREF(0, scalar($code_reference))));
-			  if (parser->expect == XBLOCK)
-			      parser->expect = XOPERATOR;
-			}
-	|	term[code_reference] OPTCHAIN ARROW PERLY_PAREN_OPEN expr PERLY_PAREN_CLOSE     /* $subref?->(@args) */
-			{ $$ = newOPTCHAINOP(0, $code_reference,
-				   newUNOP(OP_ENTERSUB, OPf_STACKED,
-					   op_append_elem(OP_LIST, $expr,
-					       newCVREF(0, newOP(OP_NULL, OPf_SPECIAL)))));
+	|	term[code_reference] arrow PERLY_PAREN_OPEN expr PERLY_PAREN_CLOSE     /* $subref->(@args) or $subref?->(@args) */
+			{ OP *base = $arrow
+			    ? scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$arrow)) : scalar($code_reference);
+			  $$ = newUNOP(OP_ENTERSUB, OPf_STACKED,
+			      op_append_elem(OP_LIST, $expr,
+			          newCVREF(0, base)));
+			  if ($arrow) $$ = newOPTCHAINOP(0, $code_reference, $$, (PADOFFSET)$arrow);
 			  if (parser->expect == XBLOCK)
 			      parser->expect = XOPERATOR;
 			}
@@ -1631,10 +1623,11 @@ term[product]	:	termbinop
 			{ $$ = $ary; }
 	|	arylen 	%prec PERLY_PAREN_OPEN                    /* $#x, $#{ something } */
 			{ $$ = newUNOP(OP_AV2ARYLEN, 0, ref($arylen, OP_AV2ARYLEN));}
-        |       term[operand] OPTCHAIN ARROW DOLSHARP PERLY_STAR           /* $something?->$#* */
+        |       term[operand] optarrow DOLSHARP PERLY_STAR           /* $something?->$#* */
                         {  $$ = newOPTCHAINOP(0,  $operand,
                                    newUNOP(OP_AV2ARYLEN, 0,
-                                     ref(newAVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_AV2ARYLEN))); }
+                                     ref(newAVREF(scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow))), OP_AV2ARYLEN)),
+                                   (PADOFFSET)$optarrow); }
 	|       subscripted
 			{ $$ = $subscripted; }
 	|	sliceme PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE                     /* array slice */
@@ -1677,37 +1670,41 @@ term[product]	:	termbinop
 			      $$->op_private |=
 				  $kvslice->op_private & OPpSLICEWARNING;
 			}
-	|	term[operand] OPTCHAIN ARROW PERLY_SNAIL PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE   /* $aref?->@[0,1] */
+	|	term[operand] optarrow PERLY_SNAIL PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE   /* $aref?->@[0,1] */
 			{ $$ = newOPTCHAINOP(0, $operand,
 				   op_prepend_elem(OP_ASLICE,
 				       newOP(OP_PUSHMARK, 0),
 				       newLISTOP(OP_ASLICE, 0,
 					   list($expr),
-					   ref(newAVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_ASLICE))));
+					   ref(newAVREF(scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow))), OP_ASLICE))),
+				   (PADOFFSET)$optarrow);
 			}
-	|	term[operand] OPTCHAIN ARROW PERLY_SNAIL PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   /* $href?->@{a,b} */
+	|	term[operand] optarrow PERLY_SNAIL PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   /* $href?->@{a,b} */
 			{ $$ = newOPTCHAINOP(0, $operand,
 				   op_prepend_elem(OP_HSLICE,
 				       newOP(OP_PUSHMARK, 0),
 				       newLISTOP(OP_HSLICE, 0,
 					   list($expr),
-					   ref(newHVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_HSLICE))));
+					   ref(newHVREF(scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow))), OP_HSLICE))),
+				   (PADOFFSET)$optarrow);
 			}
-	|	term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE   /* $aref?->%[0,1] */
+	|	term[operand] optarrow PERLY_PERCENT_SIGN PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE   /* $aref?->%[0,1] */
 			{ $$ = newOPTCHAINOP(0, $operand,
 				   op_prepend_elem(OP_KVASLICE,
 				       newOP(OP_PUSHMARK, 0),
 				       newLISTOP(OP_KVASLICE, 0,
 					   list($expr),
-					   ref(oopsAV(newHVREF(newOP(OP_NULL, OPf_SPECIAL))), OP_KVASLICE))));
+					   ref(oopsAV(newHVREF(scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow)))), OP_KVASLICE))),
+				   (PADOFFSET)$optarrow);
 			}
-	|	term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   /* $href?->%{a,b} */
+	|	term[operand] optarrow PERLY_PERCENT_SIGN PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   /* $href?->%{a,b} */
 			{ $$ = newOPTCHAINOP(0, $operand,
 				   op_prepend_elem(OP_KVHSLICE,
 				       newOP(OP_PUSHMARK, 0),
 				       newLISTOP(OP_KVHSLICE, 0,
 					   list($expr),
-					   ref(newHVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_KVHSLICE))));
+					   ref(newHVREF(scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow))), OP_KVHSLICE))),
+				   (PADOFFSET)$optarrow);
 			}
 	|	THING	%prec PERLY_PAREN_OPEN
 			{ $$ = $THING; }
@@ -1725,30 +1722,33 @@ term[product]	:	termbinop
 			{ $$ = newUNOP(OP_ENTERSUB, OPf_STACKED,
 			    op_append_elem(OP_LIST, $optlistexpr, scalar($subname)));
 			}
-	|	term[operand] ARROW PERLY_DOLLAR PERLY_STAR
-			{ $$ = newSVREF($operand); }
-	|	term[operand] OPTCHAIN ARROW PERLY_DOLLAR PERLY_STAR
-			{ $$ = newOPTCHAINOP(0, $operand, newSVREF(newOP(OP_NULL, OPf_SPECIAL))); }
+	|	term[operand] arrow PERLY_DOLLAR PERLY_STAR
+			{ OP *base = $arrow
+			    ? scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$arrow)) : (OP *)$operand;
+			  $$ = newSVREF(base);
+			  if ($arrow) $$ = newOPTCHAINOP(0, $operand, $$, (PADOFFSET)$arrow);
+			}
 	|	term[operand] ARROW PERLY_SNAIL PERLY_STAR
 			{ $$ = newAVREF($operand); }
-        |       term[operand] OPTCHAIN ARROW PERLY_SNAIL PERLY_STAR
-                        { $$ = newOPTCHAINOP(0,  $operand, newAVREF(newOP(OP_NULL, OPf_SPECIAL))); }
+        |       term[operand] optarrow PERLY_SNAIL PERLY_STAR
+                        { $$ = newOPTCHAINOP(0,  $operand, newAVREF(scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow))), (PADOFFSET)$optarrow); }
 	|	term[operand] ARROW PERLY_PERCENT_SIGN PERLY_STAR
 			{ $$ = newHVREF($operand); }
-        |       term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_STAR
-                        { $$ = newOPTCHAINOP(0, $operand, newHVREF(newOP(OP_NULL, OPf_SPECIAL))); }
+        |       term[operand] optarrow PERLY_PERCENT_SIGN PERLY_STAR
+                        { $$ = newOPTCHAINOP(0, $operand, newHVREF(scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow))), (PADOFFSET)$optarrow); }
 	|	term[operand] ARROW PERLY_AMPERSAND PERLY_STAR
 			{ $$ = newUNOP(OP_ENTERSUB, 0,
 				       scalar(newCVREF($PERLY_AMPERSAND,$operand))); }
-	|	term[operand] OPTCHAIN ARROW PERLY_AMPERSAND PERLY_STAR
+	|	term[operand] optarrow PERLY_AMPERSAND PERLY_STAR
 			{ $$ = newOPTCHAINOP(0, $operand,
 				   newUNOP(OP_ENTERSUB, OPf_STACKED,
-					   newCVREF($PERLY_AMPERSAND, newOP(OP_NULL, OPf_SPECIAL))));
+					   newCVREF($PERLY_AMPERSAND, scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow)))),
+				   (PADOFFSET)$optarrow);
 			}
 	|	term[operand] ARROW PERLY_STAR PERLY_STAR	%prec PERLY_PAREN_OPEN
 			{ $$ = newGVREF(0,$operand); }
-	|	term[operand] OPTCHAIN ARROW PERLY_STAR PERLY_STAR	%prec PERLY_PAREN_OPEN
-			{ $$ = newOPTCHAINOP(0, $operand, newGVREF(0,newOP(OP_NULL, OPf_SPECIAL))); }
+	|	term[operand] optarrow PERLY_STAR PERLY_STAR	%prec PERLY_PAREN_OPEN
+			{ $$ = newOPTCHAINOP(0, $operand, newGVREF(0,scalar(newPADxVOP(OP_PADSV, 0, (PADOFFSET)$optarrow))), (PADOFFSET)$optarrow); }
 	|	LOOPEX  /* loop exiting command (goto, last, dump, etc) */
 			{ $$ = newOP($LOOPEX, OPf_SPECIAL);
 			    PL_hints |= HINT_BLOCK_SCOPE; }

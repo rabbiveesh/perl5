@@ -2473,7 +2473,8 @@ ARdp	|OP *	|newOP		|I32 optype				\
 				|I32 flags
 ARdpx	|OP *	|newOPTCHAINOP	|I32 flags				\
 				|NN OP *invocant			\
-				|NN OP *o
+				|NN OP *o				\
+				|PADOFFSET padix
 ARTdpx	|PADNAMELIST *|newPADNAMELIST					\
 				|size_t max
 ARTdpx	|PADNAME *|newPADNAMEouter					\
