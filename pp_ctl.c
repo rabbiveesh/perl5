@@ -5852,6 +5852,24 @@ PP(pp_leavetry)
     return retop;
 }
 
+PP(pp_optchain)
+{
+    SV *invocant = PL_stack_sp[0];
+
+    if(SvOK(invocant)) {
+        if(PL_op->op_targ) {
+            SAVECLEARSV(PAD_SVl(PL_op->op_targ));
+            SvSetSV(PAD_SVl(PL_op->op_targ), invocant);
+            rpp_popfree_1();
+        }
+        return cLOGOP->op_other;
+    }
+
+    rpp_popfree_1();
+
+    return NORMAL;
+}
+
 PP(pp_entergiven)
 {
     PERL_CONTEXT *cx;

@@ -293,6 +293,7 @@ Helper macro to turn off the C<CvREFCOUNTED_ANYSV> flag.
 #define CvEVAL_COMPILED_on(cv)  (CvFLAGS(cv) |= CVf_EVAL_COMPILED)
 #define CvEVAL_COMPILED_off(cv) (CvFLAGS(cv) &= ~CVf_EVAL_COMPILED)
 
+
 /* Back-compat */
 #ifndef PERL_CORE
 #  define CVf_METHOD            CVf_NOWARN_AMBIGUOUS

@@ -1175,6 +1175,33 @@ S_optimize_op(pTHX_ OP* o)
     }
 }
 
+/* Is this op part of a dereference chain?  Used by the OP_OPTCHAIN
+ * peephole fixup to walk up the op tree and find the topmost deref op
+ * that the short-circuit should skip past. */
+static bool
+S_is_optchain_deref_op(U16 type)
+{
+    switch (type) {
+    case OP_AELEM:
+    case OP_HELEM:
+    case OP_RV2AV:
+    case OP_RV2HV:
+    case OP_RV2SV:
+    case OP_RV2CV:
+    case OP_RV2GV:
+    case OP_AV2ARYLEN:
+    case OP_MULTIDEREF:
+    case OP_EXISTS:
+    case OP_DELETE:
+    case OP_NULL:
+    case OP_OPTCHAIN:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+
 /*
 =for apidoc finalize_optree
 
@@ -3738,6 +3765,34 @@ Perl_rpeep(pTHX_ OP *o)
         case OP_HELEMEXISTSOR:
         case OP_ANYWHILE:
         case OP_CATCH:
+
+        case OP_OPTCHAIN:
+            /* Fix up the short-circuit target for optional chaining.
+             *
+             * After LINKLIST, op_next (the "undef" branch) points to the
+             * null wrapper created by newLOGOP.  But if the optchain result
+             * is used as a child of further deref ops (e.g., $x?->[0]{b}),
+             * those deref ops sit ABOVE the null wrapper in the tree and
+             * would incorrectly execute on undef.
+             *
+             * Walk up from the null wrapper via op_parent(), continuing as
+             * long as the current op is the first child of a deref-chain
+             * parent.  The topmost such op's op_next is the correct
+             * bail-out target: it skips the entire dereference chain.
+             */
+            if (o->op_type == OP_OPTCHAIN) {
+                OP *top = o->op_next; /* the null wrapper from newLOGOP */
+                OP *parent;
+
+                while ((parent = op_parent(top)) != NULL
+                    && cUNOPx(parent)->op_first == top
+                    && S_is_optchain_deref_op(parent->op_type))
+                {
+                    top = parent;
+                }
+
+                o->op_next = top->op_next;
+            }
 
         generic_logop:
 

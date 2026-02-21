@@ -350,6 +350,8 @@ invert_opset function.
     is_bool
     is_weak weaken unweaken
 
+    optchain
+
     leaveeval -- needed for Safe to operate, is safe
 		 without entereval
 

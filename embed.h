@@ -405,6 +405,7 @@
 # define newMYSUB(a,b,c,d,e)                    Perl_newMYSUB(aTHX_ a,b,c,d,e)
 # define newNULLLIST()                          Perl_newNULLLIST(aTHX)
 # define newOP(a,b)                             Perl_newOP(aTHX_ a,b)
+# define newOPTCHAINOP(a,b,c)                   Perl_newOPTCHAINOP(aTHX_ a,b,c)
 # define newPADNAMELIST                         Perl_newPADNAMELIST
 # define newPADNAMEouter                        Perl_newPADNAMEouter
 # define newPADNAMEpvn                          Perl_newPADNAMEpvn
@@ -2162,6 +2163,7 @@
 # endif /* defined(PERL_CORE) || defined(PERL_EXT) */
 # if defined(PERL_CORE) || defined(PERL_USE_VOLATILE_API)
 #   define finalize_optree(a)                   Perl_finalize_optree(aTHX_ a)
+#   define fix_optchain(a)                      Perl_fix_optchain(aTHX_ a)
 #   define optimize_optree(a)                   Perl_optimize_optree(aTHX_ a)
 # endif
 # if !defined(PERL_IMPLICIT_SYS)
