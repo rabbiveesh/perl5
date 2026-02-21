@@ -3605,6 +3605,12 @@ sub pp_optchain {
 	    my $method = ($name eq "aelem") ? \&pp_aelem : \&pp_helem;
 	    $chain_text = $method->($self, $chain, 24);
 	}
+	# Strip the $<optchain> pad variable that appears as the base.
+	# multideref produces "$<optchain>->[0]" / "$<optchain>->{'a'}";
+	# pp_aelem produces "$$<optchain>[0]";
+	# pp_helem produces "$$<optchain>{'a'}"
+	$chain_text =~ s/^\$\$<optchain>//;
+	$chain_text =~ s/^\$<optchain>//;
 	$chain_text =~ s/^->//;
 	return "$invocant?\->$chain_text";
     }
@@ -3701,6 +3707,8 @@ sub _optchain_target {
     } else {
 	$text = $self->deparse($target, 24);
     }
+    $text =~ s/^\$\$<optchain>//;
+    $text =~ s/^\$<optchain>//;
     $text =~ s/^->//;
     return $text;
 }

@@ -5921,20 +5921,14 @@ PP(pp_optchain)
     SV *invocant = PL_stack_sp[0];
 
     if(SvOK(invocant)) {
-        /* if we've got an op_targ, they'll want the invocant in the pad
-         * instead of on the stack (for slices, coderefs, etc. where the
-         * invocant isn't naturally consumed by the first op in the chain) */
-        if(PL_op->op_targ) {
-            SAVECLEARSV(PAD_SVl(PL_op->op_targ));
-            SvSetSV(PAD_SVl(PL_op->op_targ), invocant);
-            rpp_popfree_1();
-        }
+        SAVECLEARSV(PAD_SVl(PL_op->op_targ));
+        SvSetSV(PAD_SVl(PL_op->op_targ), invocant);
+        rpp_popfree_1();
         return cLOGOP->op_other;
     }
 
     rpp_popfree_1();
 
-    /* we have to put a fresh undef on the stack in case we're returning an lvalue */
     if(GIMME_V == G_SCALAR)
       rpp_push_1(&PL_sv_undef);
 

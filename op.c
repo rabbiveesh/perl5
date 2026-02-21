@@ -9817,22 +9817,16 @@ OP *
 Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o)
 {
     OP *result;
+    PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
+    OP *padsv = newPADxVOP(OP_PADSV, 0, padix);
 
-    CvOPTCHAIN_NEEDS_FIX_on(PL_compcv);
+    /* Every grammar rule places an OP_NULL|OPf_SPECIAL sentinel where the
+     * invocant value needs to appear at runtime.  Replace it with a padsv
+     * that pp_optchain will populate from the invocant. */
+    S_optchain_replace_sentinel(aTHX_ o, scalar(padsv));
 
-    /* If the inner tree contains a sentinel OP_NULL|OPf_SPECIAL, the grammar
-     * rule needs a pad slot to thread the invocant through entersub/slice ops.
-     * Allocate it here and replace the sentinel with a padsv. */
-    if (S_optchain_replace_sentinel(aTHX_ o, NULL)) {
-        PADOFFSET padix = pad_add_name_pvs("$<optchain>", 0, NULL, NULL);
-        OP *padsv = newPADxVOP(OP_PADSV, 0, padix);
-        /* Re-walk to do the actual replacement (first call was a probe) */
-        S_optchain_replace_sentinel(aTHX_ o, scalar(padsv));
-        result = newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
-        cUNOPx(result)->op_first->op_targ = padix;
-    } else {
-        result = newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
-    }
+    result = newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
+    cUNOPx(result)->op_first->op_targ = padix;
 
     return result;
 }

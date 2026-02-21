@@ -1306,7 +1306,7 @@ case 2: /* @1: %empty  */
   case 204: /* subscripted: term OPTCHAIN ARROW PERLY_STAR PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE  */
 #line 1369 "perly.y"
                         { (yyval.opval) = newOPTCHAINOP(0, (ps[-7].val.opval),
-                                        newBINOP(OP_GELEM, 0, newGVREF(0, newOP(OP_NULL, 0)), scalar((ps[-2].val.opval))));
+                                        newBINOP(OP_GELEM, 0, newGVREF(0, newOP(OP_NULL, OPf_SPECIAL)), scalar((ps[-2].val.opval))));
 			}
 
     break;
@@ -1330,7 +1330,7 @@ case 2: /* @1: %empty  */
   case 207: /* subscripted: term OPTCHAIN ARROW PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE  */
 #line 1381 "perly.y"
                         { (yyval.opval) = newOPTCHAINOP(0, (ps[-5].val.opval),
-                                        newBINOP(OP_AELEM, 0, ref(newAVREF(newOP(OP_NULL, 0)), OP_RV2AV), scalar((ps[-1].val.opval))));
+                                        newBINOP(OP_AELEM, 0, ref(newAVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_RV2AV), scalar((ps[-1].val.opval))));
 			}
 
     break;
@@ -1362,7 +1362,7 @@ case 2: /* @1: %empty  */
   case 211: /* subscripted: term OPTCHAIN ARROW PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE  */
 #line 1397 "perly.y"
                         { (yyval.opval) = newOPTCHAINOP(0, (ps[-6].val.opval),
-                                        newBINOP(OP_HELEM, 0, ref(newHVREF(newOP(OP_NULL,0)), OP_RV2HV), jmaybe((ps[-2].val.opval))));
+                                        newBINOP(OP_HELEM, 0, ref(newHVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_RV2HV), jmaybe((ps[-2].val.opval))));
                         }
 
     break;
@@ -1879,7 +1879,7 @@ case 2: /* @1: %empty  */
 #line 1635 "perly.y"
                         {  (yyval.opval) = newOPTCHAINOP(0,  (ps[-4].val.opval),
                                    newUNOP(OP_AV2ARYLEN, 0,
-                                     ref(newAVREF(newOP(OP_NULL, 0)), OP_AV2ARYLEN))); }
+                                     ref(newAVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_AV2ARYLEN))); }
 
     break;
 
@@ -2037,7 +2037,7 @@ case 2: /* @1: %empty  */
 
   case 308: /* term: term OPTCHAIN ARROW PERLY_DOLLAR PERLY_STAR  */
 #line 1731 "perly.y"
-                        { (yyval.opval) = newOPTCHAINOP(0, (ps[-4].val.opval), newSVREF(newOP(OP_NULL, 0))); }
+                        { (yyval.opval) = newOPTCHAINOP(0, (ps[-4].val.opval), newSVREF(newOP(OP_NULL, OPf_SPECIAL))); }
 
     break;
 
@@ -2049,7 +2049,7 @@ case 2: /* @1: %empty  */
 
   case 310: /* term: term OPTCHAIN ARROW PERLY_SNAIL PERLY_STAR  */
 #line 1735 "perly.y"
-                        { (yyval.opval) = newOPTCHAINOP(0,  (ps[-4].val.opval), newAVREF(newOP(OP_NULL, 0))); }
+                        { (yyval.opval) = newOPTCHAINOP(0,  (ps[-4].val.opval), newAVREF(newOP(OP_NULL, OPf_SPECIAL))); }
 
     break;
 
@@ -2061,7 +2061,7 @@ case 2: /* @1: %empty  */
 
   case 312: /* term: term OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_STAR  */
 #line 1739 "perly.y"
-                        { (yyval.opval) = newOPTCHAINOP(0, (ps[-4].val.opval), newHVREF(newOP(OP_NULL, 0))); }
+                        { (yyval.opval) = newOPTCHAINOP(0, (ps[-4].val.opval), newHVREF(newOP(OP_NULL, OPf_SPECIAL))); }
 
     break;
 
@@ -2089,7 +2089,7 @@ case 2: /* @1: %empty  */
 
   case 316: /* term: term OPTCHAIN ARROW PERLY_STAR PERLY_STAR  */
 #line 1751 "perly.y"
-                        { (yyval.opval) = newOPTCHAINOP(0, (ps[-4].val.opval), newGVREF(0,newOP(OP_NULL, 0))); }
+                        { (yyval.opval) = newOPTCHAINOP(0, (ps[-4].val.opval), newGVREF(0,newOP(OP_NULL, OPf_SPECIAL))); }
 
     break;
 
@@ -2477,6 +2477,6 @@ case 2: /* @1: %empty  */
     
 
 /* Generated from:
- * 74d13af70c4395a13df315ffd545b76333aff1be487132c9fd14176159195e9c perly.y
+ * 0a2998cd4f6b5e3ba179305c18f5a8d55f505b905e616ff6849591ff5c3cc0a2 perly.y
  * f13e9c08cea6302f0c1d1f467405bd0e0880d0ea92d0669901017a7f7e94ab28 regen_perly.pl
  * ex: set ro ft=c: */

@@ -1367,7 +1367,7 @@ subscripted:    gelem PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   
 			{ $$ = newBINOP(OP_GELEM, 0, $gelem, scalar($expr)); }
 	|	term[invocant] OPTCHAIN ARROW PERLY_STAR PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* $x?->*{IO} */
 			{ $$ = newOPTCHAINOP(0, $invocant,
-                                        newBINOP(OP_GELEM, 0, newGVREF(0, newOP(OP_NULL, 0)), scalar($expr)));
+                                        newBINOP(OP_GELEM, 0, newGVREF(0, newOP(OP_NULL, OPf_SPECIAL)), scalar($expr)));
 			}
 	|	scalar[array] PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE          /* $array[$element] */
 			{ $$ = newBINOP(OP_AELEM, 0, oopsAV($array), scalar($expr));
@@ -1379,7 +1379,7 @@ subscripted:    gelem PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   
 			}
 	|	term[array_reference] OPTCHAIN ARROW PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE      /* somearef?->[$element] */
 			{ $$ = newOPTCHAINOP(0, $array_reference,
-                                        newBINOP(OP_AELEM, 0, ref(newAVREF(newOP(OP_NULL, 0)), OP_RV2AV), scalar($expr)));
+                                        newBINOP(OP_AELEM, 0, ref(newAVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_RV2AV), scalar($expr)));
 			}
 	|	subscripted[array_reference] PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE    /* $foo->[$bar][$baz] */
 			{ $$ = newBINOP(OP_AELEM, 0,
@@ -1395,7 +1395,7 @@ subscripted:    gelem PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE   
 					jmaybe($expr)); }
 	|	term[hash_reference] OPTCHAIN ARROW PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* somehref?->{bar();} */
 			{ $$ = newOPTCHAINOP(0, $hash_reference,
-                                        newBINOP(OP_HELEM, 0, ref(newHVREF(newOP(OP_NULL,0)), OP_RV2HV), jmaybe($expr)));
+                                        newBINOP(OP_HELEM, 0, ref(newHVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_RV2HV), jmaybe($expr)));
                         }
 	|	subscripted[hash_reference] PERLY_BRACE_OPEN expr PERLY_SEMICOLON PERLY_BRACE_CLOSE /* $foo->[bar]{baz;} */
 			{ $$ = newBINOP(OP_HELEM, 0,
@@ -1634,7 +1634,7 @@ term[product]	:	termbinop
         |       term[operand] OPTCHAIN ARROW DOLSHARP PERLY_STAR           /* $something?->$#* */
                         {  $$ = newOPTCHAINOP(0,  $operand,
                                    newUNOP(OP_AV2ARYLEN, 0,
-                                     ref(newAVREF(newOP(OP_NULL, 0)), OP_AV2ARYLEN))); }
+                                     ref(newAVREF(newOP(OP_NULL, OPf_SPECIAL)), OP_AV2ARYLEN))); }
 	|       subscripted
 			{ $$ = $subscripted; }
 	|	sliceme PERLY_BRACKET_OPEN expr PERLY_BRACKET_CLOSE                     /* array slice */
@@ -1728,15 +1728,15 @@ term[product]	:	termbinop
 	|	term[operand] ARROW PERLY_DOLLAR PERLY_STAR
 			{ $$ = newSVREF($operand); }
 	|	term[operand] OPTCHAIN ARROW PERLY_DOLLAR PERLY_STAR
-			{ $$ = newOPTCHAINOP(0, $operand, newSVREF(newOP(OP_NULL, 0))); }
+			{ $$ = newOPTCHAINOP(0, $operand, newSVREF(newOP(OP_NULL, OPf_SPECIAL))); }
 	|	term[operand] ARROW PERLY_SNAIL PERLY_STAR
 			{ $$ = newAVREF($operand); }
         |       term[operand] OPTCHAIN ARROW PERLY_SNAIL PERLY_STAR
-                        { $$ = newOPTCHAINOP(0,  $operand, newAVREF(newOP(OP_NULL, 0))); }
+                        { $$ = newOPTCHAINOP(0,  $operand, newAVREF(newOP(OP_NULL, OPf_SPECIAL))); }
 	|	term[operand] ARROW PERLY_PERCENT_SIGN PERLY_STAR
 			{ $$ = newHVREF($operand); }
         |       term[operand] OPTCHAIN ARROW PERLY_PERCENT_SIGN PERLY_STAR
-                        { $$ = newOPTCHAINOP(0, $operand, newHVREF(newOP(OP_NULL, 0))); }
+                        { $$ = newOPTCHAINOP(0, $operand, newHVREF(newOP(OP_NULL, OPf_SPECIAL))); }
 	|	term[operand] ARROW PERLY_AMPERSAND PERLY_STAR
 			{ $$ = newUNOP(OP_ENTERSUB, 0,
 				       scalar(newCVREF($PERLY_AMPERSAND,$operand))); }
@@ -1748,7 +1748,7 @@ term[product]	:	termbinop
 	|	term[operand] ARROW PERLY_STAR PERLY_STAR	%prec PERLY_PAREN_OPEN
 			{ $$ = newGVREF(0,$operand); }
 	|	term[operand] OPTCHAIN ARROW PERLY_STAR PERLY_STAR	%prec PERLY_PAREN_OPEN
-			{ $$ = newOPTCHAINOP(0, $operand, newGVREF(0,newOP(OP_NULL, 0))); }
+			{ $$ = newOPTCHAINOP(0, $operand, newGVREF(0,newOP(OP_NULL, OPf_SPECIAL))); }
 	|	LOOPEX  /* loop exiting command (goto, last, dump, etc) */
 			{ $$ = newOP($LOOPEX, OPf_SPECIAL);
 			    PL_hints |= HINT_BLOCK_SCOPE; }
