@@ -203,6 +203,47 @@ is $undef?->(1, 2), undef, 'coderef: undef call with args returns undef';
   $undef?->x;
   is $undef, undef, 'method: no autovivification';
 }
+# --- lvalue: scalar assignment ---
+{
+  # hash element
+  my $h = { foo => 1 };
+  $h?->{foo} = 42;
+  is $h->{foo}, 42, 'lvalue: hash element assign';
+
+  # array element
+  my $a = [10, 20];
+  $a?->[1] = 77;
+  is $a->[1], 77, 'lvalue: array element assign';
+
+  # undef invocant: assignment silently skipped, no vivification
+  my $u;
+  $u?->{foo} = 99;
+  is $u, undef, 'lvalue: undef hash no vivification';
+
+  $u?->[0] = 99;
+  is $u, undef, 'lvalue: undef array no vivification';
+
+  # RHS not evaluated when invocant is undef
+  my $counter = 0;
+  $u?->{foo} = $counter++;
+  is $counter, 0, 'lvalue: RHS not evaluated on undef';
+
+  # chained optchain lvalue
+  my $deep = { x => { y => 1 } };
+  $deep?->{x}?->{y} = 42;
+  is $deep->{x}{y}, 42, 'lvalue: chained assign';
+
+  # inner undef in chain: assignment skipped
+  my $partial = { x => undef };
+  $partial?->{x}?->{y} = 99;
+  is $partial->{x}, undef, 'lvalue: chained inner undef no vivification';
+
+  # return value of lvalue optchain (defined case)
+  my $rv_h = { a => 1 };
+  my $rv = ($rv_h?->{a} = 55);
+  is $rv, 55, 'lvalue: return value of assign';
+  is $rv_h->{a}, 55, 'lvalue: assign took effect';
+}
 # --- glob member deref ---
 {
   my $gref = \*STDOUT;

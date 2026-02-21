@@ -5867,6 +5867,9 @@ PP(pp_optchain)
 
     rpp_popfree_1();
 
+    if(GIMME_V == G_SCALAR)
+      rpp_push_1(&PL_sv_undef);
+
     return NORMAL;
 }
 
