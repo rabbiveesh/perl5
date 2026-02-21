@@ -244,6 +244,45 @@ is $undef?->(1, 2), undef, 'coderef: undef call with args returns undef';
   is $rv, 55, 'lvalue: return value of assign';
   is $rv_h->{a}, 55, 'lvalue: assign took effect';
 }
+# --- exists ---
+{
+  my $h = { a => 1, b => 2 };
+
+  is exists $h?->{a}, 1, 'exists: defined hash key';
+  is exists $h?->{z}, '', 'exists: missing hash key';
+
+  my $undef;
+  is exists $undef?->{a}, undef, 'exists: undef invocant returns undef (falsy)';
+
+  is $undef, undef, 'exists: undef invocant no autovivification';
+
+  my $a = [10, 20, 30];
+  is exists $a?->[1], 1, 'exists: defined array index';
+  is exists $a?->[99], '', 'exists: missing array index';
+  is exists $undef?->[0], undef, 'exists: undef array returns undef (falsy)';
+}
+
+# --- delete ---
+{
+  my $h = { a => 1, b => 2 };
+
+  is delete $h?->{a}, 1, 'delete: returns deleted value';
+  is $h->{a}, undef, 'delete: key actually removed';
+
+  my $undef;
+  is delete $undef?->{a}, undef, 'delete: undef invocant returns undef';
+  is $undef, undef, 'delete: undef invocant no autovivification';
+
+  # side effects in key should not run on undef
+  my $counter = 0;
+  delete $undef?->{$counter++};
+  is $counter, 0, 'delete: key not evaluated on undef';
+
+  my $a = [10, 20, 30];
+  is delete $a?->[1], 20, 'delete: array element returns deleted value';
+  is $a->[1], undef, 'delete: array element actually removed';
+  is delete $undef?->[0], undef, 'delete: undef array returns undef';
+}
 # --- glob member deref ---
 {
   my $gref = \*STDOUT;
