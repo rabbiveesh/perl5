@@ -9790,6 +9790,8 @@ The C<padix> parameter is the pad offset of that slot.
 OP *
 Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o, PADOFFSET padix)
 {
+    PERL_ARGS_ASSERT_NEWOPTCHAINOP;
+
     OP *result = newLOGOP(OP_OPTCHAIN, flags, scalar(invocant), o);
     cUNOPx(result)->op_first->op_targ = padix;
 
