@@ -3642,13 +3642,10 @@ sub _optchain_entersub {
     for (; not null $kid->sibling; $kid = $kid->sibling) {
 	push @exprs, $kid;
     }
-    # $kid is the last non-null child.
-    # For $x?->(), it's ex-rv2cv wrapping the pad ref.
-    # For $x?->&*, it's the bare pad ref (padsv).
-    my $last_is_rv2cv = ($kid->name eq "null" && class($kid) ne "OP"
-			 && $kid->targ
-			 && substr(B::ppname($kid->targ), 3) eq "rv2cv");
-    if (!$last_is_rv2cv && !@exprs) {
+    # Distinguish $x?->&* (AMPER flag set) from $x?->() (no AMPER flag).
+    # Checking OPpENTERSUB_AMPER is reliable across threaded/non-threaded builds,
+    # unlike inspecting the ex-rv2cv op tree structure which varies.
+    if (($op->private & OPpENTERSUB_AMPER) && !@exprs) {
 	return "$invocant?\->&*";
     }
     my $args = join(", ", map { $self->deparse($_, 6) } @exprs);
