@@ -2890,6 +2890,13 @@ sub givwhen {
 sub pp_leavegiven { givwhen(@_, $_[0]->keyword("given")); }
 sub pp_leavewhen  { givwhen(@_, $_[0]->keyword("when")); }
 
+sub _is_optchain_wrapper {
+    my($self, $op) = @_;
+    my $first = $op->first;
+    return ($first->name eq "null" && ($first->flags & B::OPf_KIDS)
+            && $first->first->name eq "optchain");
+}
+
 sub pp_exists {
     my $self = shift;
     my($op, $cx) = @_;
@@ -2901,9 +2908,7 @@ sub pp_exists {
 				$self->pp_rv2cv($op->first, 16), $cx, 16);
     }
     # optchain: exists $x?->{a}
-    if ($op->first->name eq "null" && ($op->first->flags & OPf_KIDS)
-	&& $op->first->first->name eq "optchain")
-    {
+    if ($self->_is_optchain_wrapper($op)) {
 	return $self->maybe_parens_func($name,
 				$self->deparse($op->first, 16), $cx, 16);
     }
@@ -2922,9 +2927,7 @@ sub pp_delete {
     my $arg;
     my $name = $self->keyword("delete");
     # optchain: delete $x?->{a}
-    if ($op->first->name eq "null" && ($op->first->flags & OPf_KIDS)
-	&& $op->first->first->name eq "optchain")
-    {
+    if ($self->_is_optchain_wrapper($op)) {
 	return $self->maybe_parens_func($name,
 				$self->deparse($op->first, 16), $cx, 16);
     }
@@ -3605,13 +3608,7 @@ sub pp_optchain {
 	    my $method = ($name eq "aelem") ? \&pp_aelem : \&pp_helem;
 	    $chain_text = $method->($self, $chain, 24);
 	}
-	# Strip the $<optchain> pad variable that appears as the base.
-	# multideref produces "$<optchain>->[0]" / "$<optchain>->{'a'}";
-	# pp_aelem produces "$$<optchain>[0]";
-	# pp_helem produces "$$<optchain>{'a'}"
-	$chain_text =~ s/^\$\$<optchain>//;
-	$chain_text =~ s/^\$<optchain>//;
-	$chain_text =~ s/^->//;
+	$chain_text = $self->_optchain_strip_pad($chain_text);
 	return "$invocant?\->$chain_text";
     }
     else {
@@ -3707,6 +3704,16 @@ sub _optchain_target {
     } else {
 	$text = $self->deparse($target, 24);
     }
+    return $self->_optchain_strip_pad($text);
+}
+
+# Strip the $<optchain> pad variable that appears as the base of a deparsed
+# optchain dereference.  The exact prefix varies by op type:
+#   multideref: "$<optchain>->[0]" / "$<optchain>->{'a'}"
+#   pp_aelem:   "$$<optchain>[0]"
+#   pp_helem:   "$$<optchain>{'a'}"
+sub _optchain_strip_pad {
+    my($self, $text) = @_;
     $text =~ s/^\$\$<optchain>//;
     $text =~ s/^\$<optchain>//;
     $text =~ s/^->//;
