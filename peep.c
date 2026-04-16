@@ -3773,16 +3773,25 @@ Perl_rpeep(pTHX_ OP *o)
         case OP_OPTCHAIN:
             /* Fix up the short-circuit target for optional chaining.
              *
-             * After LINKLIST, op_next (the "undef" branch) points to the
-             * null wrapper created by newLOGOP.  But if the optchain result
-             * is used as a child of further deref ops (e.g., $x?->[0]{b}),
-             * those deref ops sit ABOVE the null wrapper in the tree and
-             * would incorrectly execute on undef.
+             * This fixup is load-bearing, not defensive: without it,
+             * expressions where the optchain result is consumed by
+             * further derefs (e.g. `$x?->[0][1]` with `$x` undef) die
+             * at runtime with "Can't use an undefined value as an
+             * ARRAY reference".  See t/op/optchain.t test
+             * "aelem: short-circuit even subscripted access".
              *
-             * Walk up from the null wrapper via op_parent(), continuing as
-             * long as the current op is the first child of a deref-chain
-             * parent.  The topmost such op's op_next is the correct
-             * bail-out target: it skips the entire dereference chain.
+             * After LINKLIST, op_next (the "undef" branch) points to
+             * the null wrapper created by newLOGOP.  But if the
+             * optchain result is consumed by deref ops above it in
+             * the tree (e.g. `$x?->[0]{b}` — the outer `{b}` helem
+             * sits ABOVE the null wrapper), those deref ops would
+             * still execute on undef on the bail-out path.
+             *
+             * Walk up from the null wrapper via op_parent(), continuing
+             * as long as the current op is the first child of a
+             * deref-chain parent.  The topmost such op's op_next is
+             * the correct bail-out target: it skips the entire
+             * dereference chain rooted at this optchain.
              */
             if (o->op_type == OP_OPTCHAIN) {
                 OP *top = o->op_next; /* the null wrapper from newLOGOP */
