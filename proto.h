@@ -3897,12 +3897,12 @@ Perl_newOP(pTHX_ I32 optype, I32 flags)
 
 PERL_CALLCONV OP *
 Perl_newOPTCHAINOP(pTHX_ I32 flags, OP *invocant, OP *o, PADOFFSET padix)
-        Perl_attribute_nonnull_aTHX_
-        Perl_attribute_nonnull_(pTHX_2)
-        Perl_attribute_nonnull_(pTHX_3)
+        Perl_attribute_nonnull_aTHX
+        Perl_attribute_nonnull(pTHX_2)
+        Perl_attribute_nonnull(pTHX_3)
         __attribute__warn_unused_result__;
 #define PERL_ARGS_ASSERT_NEWOPTCHAINOP          \
-        assert(invocant); assert(o)
+        Perl_assert_aTHX; assert(invocant); assert(o)
 
 PERL_CALLCONV PADNAMELIST *
 Perl_newPADNAMELIST(size_t max)
